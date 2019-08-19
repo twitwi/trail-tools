@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Stats for run-log</title>
+  <script src="lib/vue.min.js"></script>
+  <link rel="stylesheet" href="lib/picnic.min.css" />
+  <style>
+      body { margin: 2em; }
+      .all { font-size: 60%; }
+      .all p { margin: 0; }
+      .save { display: block; margin-top: -1em; font-size: 70%; cursor: pointer; }
+  </style>
+</head>
+<body>
+  
+    <div id="main">
+        path:
+        <input v-model="path"/><a class="save" @click="savePath()">save</a>
+        <div>
+            total distance: {{total.dist}} km<br/>
+            total D+: {{total.d_pos}} m<br/>
+            total D-: {{total.d_neg}} m<br/>
+        </div>
+        <hr/>
+        <table>
+            <tr v-for="w in weekly_stats">
+                <td>{{w[0]}}</td>
+                <td>dist: {{w[1].dist}} km</td>
+                <td>D+: {{w[1].d_pos}} m</td>
+                <td>D-: {{w[1].d_neg}} m</td>
+            </tr>
+        </table>
+        <hr/>
+        <div class="all">
+            <p v-for="(e,i) in entries" :key="`entry-${i}`">
+                {{ e }}
+            </p>
+        </div>
+    </div>
+
+    <script src="lib/vuejspython.js"></script>
+    <script>vuejspython.start({
+        mounted() {
+        let p = localStorage.getItem('stats_py_path')
+        if (p !== null) {
+        this.$set(this, 'path', p)
+        }
+        },
+        methods: {
+        savePath() {
+        localStorage.setItem('stats_py_path', this.path)
+        }
+        }
+        })</script>
+
+</body>
+</html>
