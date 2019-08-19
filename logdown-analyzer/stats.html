@@ -23,12 +23,23 @@
             total D-: {{total.d_neg}} m<br/>
         </div>
         <hr/>
+        Weekly
         <table>
             <tr v-for="w in weekly_stats">
                 <td>{{w[0]}}</td>
                 <td>dist: {{w[1].dist}} km</td>
                 <td>D+: {{w[1].d_pos}} m</td>
                 <td>D-: {{w[1].d_neg}} m</td>
+            </tr>
+        </table>
+        <hr/>
+        Monthly
+        <table>
+            <tr v-for="m in monthly_stats">
+                <td>{{m[0]}}</td>
+                <td>dist: {{m[1].dist}} km</td>
+                <td>D+: {{m[1].d_pos}} m</td>
+                <td>D-: {{m[1].d_neg}} m</td>
             </tr>
         </table>
         <hr/>

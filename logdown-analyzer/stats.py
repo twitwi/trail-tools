@@ -38,6 +38,14 @@ class App:
             groups[e['week']].append(e)
         res = [(w, self.aggregate(groups[w])) for w in weeks]
         return res
+
+    def computed_monthly_stats(self):
+        months = list(reversed(sorted(list(set((e['month'] for e in self.entries))))))
+        groups = { m: [] for m in months }
+        for e in self.entries:
+            groups[e['month']].append(e)
+        res = [(m, self.aggregate(groups[m])) for m in months]
+        return res
         
 
 vuejspython.start(App())
