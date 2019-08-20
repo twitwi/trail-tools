@@ -10,6 +10,14 @@
       .all { font-size: 60%; }
       .all p { margin: 0; }
       .save { display: block; margin-top: -1em; font-size: 70%; cursor: pointer; }
+      
+      td.w2-0 { background: teal; color: white; }
+      td.w2-1 { background: grey; color: white; }
+      
+      td.w, td.w~* { border-top: 1px solid black; }
+      td.w+*+*+*+* { border-right: 1px solid black; }
+      td:last-child { border-right: 1px solid black; }
+      td:nth-last-child(-n+3) { font-size: 70%; }
   </style>
 </head>
 <body>
@@ -23,18 +31,34 @@
             total D-: {{total.d_neg}} m<br/>
         </div>
         <hr/>
-        Weekly
-        <table>
-            <tr v-for="w in weekly_stats">
-                <td>{{w[0]}}</td>
-                <td>dist: {{w[1].dist}} km</td>
-                <td>D+: {{w[1].d_pos}} m</td>
-                <td>D-: {{w[1].d_neg}} m</td>
+        <label><input type="checkbox" v-model="showWeekly"/><span class="checkable">Weekly/Daily</span></label>
+        (<label><input type="checkbox" v-model="showWeeklyDetails"/><span class="checkable">Show details</span></label>)
+
+        <table v-if="showWeekly">
+            <tbody>
+            <tr v-for="(e,i) in entries" :key="`entry-${i}`">
+                {{ set(v.week = 0) }}
+                <template v-if="i==0 || e.week !== entries[i-1].week">
+                    {{ set(v.nb = entriesInWeek(entries, i, e.week)) }}
+                    {{ set(v.stat = weekly_stats_dict[e.week]) }}
+                    <td :class="`w w-${v.week} w2-${v.week%2} w3-${v.week%3}`" :rowspan="v.nb" style="border: 1px solid black">W:{{e.week}}</td>
+                    <td :rowspan="v.nb">{{v.stat.dist}}km</td>
+                    <td :rowspan="v.nb">{{v.stat.d_pos}}D+</td>
+                    <td :rowspan="v.nb">{{v.stat.d_neg}}D-</td>
+                    <td :rowspan="v.nb">{{v.nb}}</td>
+                    {{ set(v.week += 1) }}
+                </template>
+                <template v-if="showWeeklyDetails">
+                    <td>{{e.date}}</td>
+                    <td>{{e.dist}}km</td>
+                    <td>{{e.d_pos}}+/{{e.d_neg}}-</td>
+                </template>
             </tr>
+            </tbody>
         </table>
         <hr/>
-        Monthly
-        <table>
+        <label><input type="checkbox" v-model="showMonthly"/><span class="checkable">Monthly</span></label>
+        <table v-if="showMonthly">
             <tr v-for="m in monthly_stats">
                 <td>{{m[0]}}</td>
                 <td>dist: {{m[1].dist}} km</td>
@@ -43,7 +67,8 @@
             </tr>
         </table>
         <hr/>
-        <div class="all">
+        <label><input type="checkbox" v-model="showAll"/><span class="checkable">Show all</span></label>
+        <div v-if="showAll" class="all">
             <p v-for="(e,i) in entries" :key="`entry-${i}`">
                 {{ e }}
             </p>
@@ -52,16 +77,34 @@
 
     <script src="lib/vuejspython.js"></script>
     <script>vuejspython.start({
+        data: () => ({
+            showAll: false,
+            showWeekly: true,
+            showMonthly: true,
+            showWeeklyDetails: true,
+        }),
+        created() {
+            this.v = {} // non-reactive, for local variables in the template
+        },
         mounted() {
-        let p = localStorage.getItem('stats_py_path')
-        if (p !== null) {
-        this.$set(this, 'path', p)
-        }
+            let p = localStorage.getItem('stats_py_path')
+            if (p !== null) {
+                this.$set(this, 'path', p)
+            }
         },
         methods: {
-        savePath() {
-        localStorage.setItem('stats_py_path', this.path)
-        }
+            set() { return undefined; },
+            savePath() {
+                localStorage.setItem('stats_py_path', this.path)
+            },
+            entriesInWeek(entries, i, week) {
+                let c = 0;
+                while (i<entries.length && entries[i].week === week) {
+                    c++;
+                    i++;
+                }
+                return c;
+            }
         }
         })</script>
 

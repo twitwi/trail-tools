@@ -4,6 +4,9 @@ import numpy as np
 import logdown as ld
 
 
+def pairs_to_dict(l):
+    return {k:v for (k,v) in l}
+
 @vuejspython.model
 class App:
     path = "example-journal.md"
@@ -46,6 +49,9 @@ class App:
             groups[e['month']].append(e)
         res = [(m, self.aggregate(groups[m])) for m in months]
         return res
+
+    def computed_weekly_stats_dict(self): return pairs_to_dict(self.weekly_stats)
+    def computed_monthly_stats_dict(self): return pairs_to_dict(self.monthly_stats)
         
 
 vuejspython.start(App())

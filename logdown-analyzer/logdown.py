@@ -22,7 +22,7 @@ class Line:
             wd = delta.days % 7
             o.weekday = wd
             o.week = datetime.datetime.strftime(date - datetime.timedelta(wd), '%Y-%m-%d')
-            o.month = int(100*date.year + date.month)
+            o.month = datetime.datetime.strftime(date, '%Y-%m')
         derive_date(self)
 
         
