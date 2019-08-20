@@ -37,16 +37,16 @@
         <table v-if="showWeekly">
             <tbody>
             <tr v-for="(e,i) in entries" :key="`entry-${i}`">
-                {{ set(v.week = 0) }}
+                {{ set(_week = 0) }}
                 <template v-if="i==0 || e.week !== entries[i-1].week">
-                    {{ set(v.nb = entriesInWeek(entries, i, e.week)) }}
-                    {{ set(v.stat = weekly_stats_dict[e.week]) }}
-                    <td :class="`w w-${v.week} w2-${v.week%2} w3-${v.week%3}`" :rowspan="v.nb" style="border: 1px solid black">W:{{e.week}}</td>
-                    <td :rowspan="v.nb">{{v.stat.dist}}km</td>
-                    <td :rowspan="v.nb">{{v.stat.d_pos}}D+</td>
-                    <td :rowspan="v.nb">{{v.stat.d_neg}}D-</td>
-                    <td :rowspan="v.nb">{{v.nb}}</td>
-                    {{ set(v.week += 1) }}
+                    {{ set(_nb = entriesInWeek(entries, i, e.week)) }}
+                    {{ set(_stat = weekly_stats_dict[e.week]) }}
+                    <td :class="`w w-${_week} w2-${_week%2} w3-${_week%3}`" :rowspan="_nb" style="border: 1px solid black">W:{{e.week}}</td>
+                    <td :rowspan="_nb">{{_stat.dist}}km</td>
+                    <td :rowspan="_nb">{{_stat.d_pos}}D+</td>
+                    <td :rowspan="_nb">{{_stat.d_neg}}D-</td>
+                    <td :rowspan="_nb">{{_nb}}</td>
+                    {{ set(_week += 1) }}
                 </template>
                 <template v-if="showWeeklyDetails">
                     <td>{{e.date}}</td>
@@ -83,9 +83,6 @@
             showMonthly: true,
             showWeeklyDetails: true,
         }),
-        created() {
-            this.v = {} // non-reactive, for local variables in the template
-        },
         mounted() {
             let p = localStorage.getItem('stats_py_path')
             if (p !== null) {
