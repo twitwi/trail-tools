@@ -90,7 +90,7 @@ def parse_logdown(fname):
             l = l.rstrip()
             if l.startswith('# '):
                 attrs = {}
-                date = l.replace(':', ' ').split(' ')[1]
+                date = re.sub('[:,]', ' ', l).split(' ')[1]
             g = re.fullmatch(r'# #SET +(.+) *: *(.+)', l)
             if g is not None:
                 sticky[g[1]] = g[2]
