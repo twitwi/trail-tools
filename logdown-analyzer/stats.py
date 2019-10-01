@@ -32,6 +32,7 @@ class App:
             'dist': int(np.sum([e['dist'] for e in entries])),
             'd_pos': int(np.sum([e['d_pos'] for e in entries if e['d_pos'] is not None])),
             'd_neg': int(np.sum([e['d_neg'] for e in entries if e['d_neg'] is not None])),
+            'dur': int(np.sum([e['dur'] for e in entries if e['dur'] is not None])),
         }
 
     def computed_weekly_stats(self):

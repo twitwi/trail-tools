@@ -27,6 +27,7 @@
         <input v-model="path"/><a class="save" @click="savePath()">save</a>
         <div>
             total distance: {{total.dist}} km<br/>
+            total duration: {{parseInt(total.dur / 60)}} h<br/>
             total D+: {{total.d_pos}} m<br/>
             total D-: {{total.d_neg}} m<br/>
         </div>
@@ -43,6 +44,7 @@
                     {{ set(_stat = weekly_stats_dict[e.week]) }}
                     <td :class="`w w-${_week} w2-${_week%2} w3-${_week%3}`" :rowspan="_nb" style="border: 1px solid black">W:{{e.week}}</td>
                     <td :rowspan="_nb">{{_stat.dist}}km</td>
+                    <td :rowspan="_nb">{{dur(_stat.dur)}}</td>
                     <td :rowspan="_nb">{{_stat.d_pos}}D+</td>
                     <td :rowspan="_nb">{{_stat.d_neg}}D-</td>
                     <td :rowspan="_nb">{{_nb}}</td>
@@ -51,6 +53,7 @@
                 <template v-if="showWeeklyDetails">
                     <td>{{e.date}}</td>
                     <td>{{e.dist}}km</td>
+                    <td>{{dur(e.dur)}}</td>
                     <td>{{e.d_pos}}+/{{e.d_neg}}-</td>
                 </template>
             </tr>
@@ -101,6 +104,11 @@
                     i++;
                 }
                 return c;
+            },
+            dur(mins) {
+                let h = parseInt(mins/60)
+                let m = ''+parseInt(mins - h*60)
+                return h + 'h' + m.padStart(2, '0')
             }
         }
         })</script>
