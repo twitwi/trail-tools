@@ -8,7 +8,11 @@ try:
     print("-----")
     print(d)
     print("-----")
-    d = json.loads(d)['Request cookies']
+    d = json.loads(d)
+    if len(d.keys()) == 1:
+        d = d[list(d.keys())[0]]
+    else:
+        d = d['Request cookies']
 except:
     print()
     print("Please 'Copy All' on the Network>Cookies on a logged in strava request for heatmap....")
