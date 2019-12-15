@@ -65,6 +65,7 @@
             <tr v-for="m in monthly_stats">
                 <td>{{m[0]}}</td>
                 <td>dist: {{m[1].dist}} km</td>
+                <td>dur: {{dur(m[1].dur)}}</td>
                 <td>D+: {{m[1].d_pos}} m</td>
                 <td>D-: {{m[1].d_neg}} m</td>
             </tr>
