@@ -2,7 +2,10 @@
 import vuejspython
 import numpy as np
 import logdown as ld
-
+import subprocess
+from pathlib import Path
+import random
+import asyncio
 
 def pairs_to_dict(l):
     return {k:v for (k,v) in l}
@@ -10,7 +13,9 @@ def pairs_to_dict(l):
 @vuejspython.model
 class App:
     path = "example-journal.md"
+    gpx_cwd = str(Path.home())+"/doc/notes/gpx"
     entries = []
+    currentlyRunning = []
 
     def __init__(self):
         self.watch_path(self.path)
@@ -53,7 +58,33 @@ class App:
 
     def computed_weekly_stats_dict(self): return pairs_to_dict(self.weekly_stats)
     def computed_monthly_stats_dict(self): return pairs_to_dict(self.monthly_stats)
+
+
+    async def doCall(self, what, e, cwd, *cmd):
+        r = {
+            'id': what+'--'+e['date']+'--'+str(random.random()),
+            'text': what+'('+e['date']+')',
+        }
+        self.currentlyRunning.append(r)
+        proc = await asyncio.create_subprocess_shell(' '.join(cmd))
+
+        await asyncio.wait_for(proc.wait(), timeout=None)
         
+        #await self.asyncCall(' '.join(cmd), cwd=cwd, shell=True)
+        #self.currentlyRunning = [rr for rr in self.currentlyRunning if r is not rr]
+        self.currentlyRunning.remove(r)
+
+
+
+    def runShellCommand(self, what, e):
+        cwd = self.gpx_cwd
+        go = lambda *cmd: asyncio.ensure_future(self.doCall(what, e, cwd, 'cd', cwd, '&&', *cmd))
+        if what == 'generic':
+            go('./generic.sh', str(e['date'])+'*.gpx', 'shouldwait=false')
+        elif what == 'smooth':
+            go('python3', '$HOME/projects/trail-tools/to-import/gpxlib.py', str(e['date'])+'*.gpx')
+        elif what == 'gpxsee':
+            go('gpxsee', str(e['date'])+'*.gpx')
 
 vuejspython.start(App())
 

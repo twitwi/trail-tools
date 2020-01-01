@@ -18,7 +18,8 @@
       td.w+*+*+*+* { border-right: 1px solid black; }
       td:last-child { border-right: 1px solid black; }
       td:nth-last-child(-n+3) { font-size: 70%; }
-
+       
+      .with-actions span { cursor: pointer; }
       .issue { color: red; }
   </style>
 </head>
@@ -37,12 +38,15 @@
         <label><input type="checkbox" v-model="showWeekly"/><span class="checkable">Weekly/Daily</span></label>
         (<label><input type="checkbox" v-model="showWeeklyDetails"/><span class="checkable">Show details</span></label>)
 
+        <span v-for="r in currentlyRunning">[{{r.text}}]</span>
+
         <table v-if="showWeekly">
             <tbody>
             <tr v-for="(e,i) in entries" :key="`entry-${i}`">
                 {{ set(_week = 0) }}
                 <template v-if="i==0 || e.week !== entries[i-1].week">
                     {{ set(_nb = entriesInWeek(entries, i, e.week)) }}
+                    {{ set(window.console.log(e.week))}}
                     {{ set(_stat = weekly_stats_dict[e.week]) }}
                     <td :class="`w w-${_week} w2-${_week%2} w3-${_week%3}`" :rowspan="_nb" style="border: 1px solid black">W:{{e.week}}</td>
                     <td :rowspan="_nb">{{_stat.dist}}km</td>
@@ -53,7 +57,11 @@
                     {{ set(_week += 1) }}
                 </template>
                 <template v-if="showWeeklyDetails">
-                    <td>{{e.date}}</td>
+                    <td class="with-actions">{{e.date}}
+                        <span @click="runShellCommand('generic', e)">📈</span>
+                        <span @click="runShellCommand('smooth', e)">⛰️</span>
+                        <span @click="runShellCommand('gpxsee', e)">🏔️</span>
+                    </td>
                     <td>{{e.dist}}km</td>
                     <td>{{dur(e.dur)}}</td>
                     <td>{{e.d_pos}}+/{{e.d_neg}}-</td>
@@ -118,7 +126,7 @@
                 let h = parseInt(mins/60)
                 let m = ''+parseInt(mins - h*60)
                 return h + 'h' + m.padStart(2, '0')
-            }
+            },
         }
         })</script>
 
