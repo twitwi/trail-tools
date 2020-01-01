@@ -18,6 +18,8 @@
       td.w+*+*+*+* { border-right: 1px solid black; }
       td:last-child { border-right: 1px solid black; }
       td:nth-last-child(-n+3) { font-size: 70%; }
+
+      .issue { color: red; }
   </style>
 </head>
 <body>
@@ -73,7 +75,7 @@
         <hr/>
         <label><input type="checkbox" v-model="showAll"/><span class="checkable">Show all</span></label>
         <div v-if="showAll" class="all">
-            <p v-for="(e,i) in entries" :key="`entry-${i}`">
+            <p v-for="(e,i) in checkedEntries" :key="`entry-${i}`" :class="{issue: e.issue}">
                 {{ e }}
             </p>
         </div>
@@ -91,6 +93,12 @@
             let p = localStorage.getItem('stats_py_path')
             if (p !== null) {
                 this.$set(this, 'path', p)
+            }
+        },
+        computed: {
+            checkedEntries() {
+                let hasIssue = e => e.dist == null
+                return this.entries.map(e => ({...e, issue: hasIssue(e)}))
             }
         },
         methods: {
