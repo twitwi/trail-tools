@@ -18,16 +18,28 @@
       td.w+*+*+*+* { border-right: 1px solid black; }
       td:last-child { border-right: 1px solid black; }
       td:nth-last-child(-n+3) { font-size: 70%; }
-       
+
+      td { position: relative; }
+      td[style]::after { content: ''; background: blue; position: absolute; left: 2%; width: calc(var(--v) * 96%); bottom: 0; height: 100%/*.3em*/; opacity: 0.15; }
+      td.dur::after { background: darkgreen; }
+      td.d_pos::after { background: darkred; }
+      
+      .point { cursor: pointer; }
+      .global-controls span { cursor: pointer; border: 1px solid grey; display: inline-block; text-align: center; min-width: 1.5em; }
       .with-actions span { cursor: pointer; }
       .issue { color: red; }
+
   </style>
 </head>
 <body>
   
-    <div id="main">
-        path:
+    <div id="main" @click="">
+        path <span class="pointer" @click="reload()">⟲</span>:
         <input v-model="path"/><a class="save" @click="savePath()">save</a>
+        <div class="global-controls">
+            <span @click="runShellCommand('edit-logs', null)">L</span>
+            <span @click="runShellCommand('edit-notes', null)">N</span>
+        </div>
         <div>
             total distance: {{total.dist}} km<br/>
             total duration: {{parseInt(total.dur / 60)}} h<br/>
@@ -41,6 +53,8 @@
         <span v-for="r in currentlyRunning">[{{r.text}}]</span>
 
         <table v-if="showWeekly">
+            {{ set(_m = max_weekly_stats) }}
+            {{ set(_md = max_daily_stats) }}
             <tbody>
             <tr v-for="(e,i) in entries" :key="`entry-${i}`">
                 {{ set(_week = 0) }}
@@ -49,11 +63,11 @@
                     {{ set(window.console.log(e.week))}}
                     {{ set(_stat = weekly_stats_dict[e.week]) }}
                     <td :class="`w w-${_week} w2-${_week%2} w3-${_week%3}`" :rowspan="_nb" style="border: 1px solid black">W:{{e.week}}</td>
-                    <td :rowspan="_nb">{{_stat.dist}}km</td>
-                    <td :rowspan="_nb">{{dur(_stat.dur)}}</td>
-                    <td :rowspan="_nb">{{_stat.d_pos}}D+</td>
-                    <td :rowspan="_nb">{{_stat.d_neg}}D-</td>
-                    <td :rowspan="_nb">{{_nb}}</td>
+                    <td class="dist"  :rowspan="_nb" :style="{'--v': _stat.dist  / _m.dist }">{{_stat.dist}}km</td>
+                    <td class="dur"   :rowspan="_nb" :style="{'--v': _stat.dur   / _m.dur  }">{{dur(_stat.dur)}}</td>
+                    <td class="d_pos" :rowspan="_nb" :style="{'--v': _stat.d_pos / _m.d_pos}">{{_stat.d_pos}}D+</td>
+                    <td class="d_neg" :rowspan="_nb">{{_stat.d_neg}}D-</td>
+                    <td class="nb" :rowspan="_nb">{{_nb}}</td>
                     {{ set(_week += 1) }}
                 </template>
                 <template v-if="showWeeklyDetails">
@@ -62,9 +76,9 @@
                         <span @click="runShellCommand('smooth', e)">⛰️</span>
                         <span @click="runShellCommand('gpxsee', e)">🏔️</span>
                     </td>
-                    <td>{{e.dist}}km</td>
-                    <td>{{dur(e.dur)}}</td>
-                    <td>{{e.d_pos}}+/{{e.d_neg}}-</td>
+                    <td class="dist"  :style="{'--v': e.dist  / _md.dist }">{{e.dist}}km</td>
+                    <td class="dur"   :style="{'--v': e.dur   / _md.dur  }">{{dur(e.dur)}}</td>
+                    <td class="d_pos" :style="{'--v': e.d_pos / _md.d_pos}">{{e.d_pos}}+/{{e.d_neg}}-</td>
                 </template>
             </tr>
             </tbody>
@@ -72,11 +86,24 @@
         <hr/>
         <label><input type="checkbox" v-model="showMonthly"/><span class="checkable">Monthly</span></label>
         <table v-if="showMonthly">
+            {{ set(_m = max_monthly_stats) }}
             <tr v-for="m in monthly_stats">
                 <td>{{m[0]}}</td>
-                <td>dist: {{m[1].dist}} km</td>
-                <td>dur: {{dur(m[1].dur)}}</td>
-                <td>D+: {{m[1].d_pos}} m</td>
+                <td class="dist"  :style="{'--v': m[1].dist  / _m.dist }">dist: {{m[1].dist}} km</td>
+                <td class="dur"   :style="{'--v': m[1].dur   / _m.dur  }">dur: {{dur(m[1].dur)}}</td>
+                <td class="d_pos" :style="{'--v': m[1].d_pos / _m.d_pos}">D+: {{m[1].d_pos}} m</td>
+                <td>D-: {{m[1].d_neg}} m</td>
+            </tr>
+        </table>
+        <hr/>
+        <label><input type="checkbox" v-model="showYearly"/><span class="checkable">Yearly</span></label>
+        <table v-if="showYearly">
+            {{ set(_m = max_yearly_stats) }}
+            <tr v-for="m in yearly_stats">
+                <td>{{m[0]}}</td>
+                <td class="dist"  :style="{'--v': m[1].dist  / _m.dist }">dist: {{m[1].dist}} km</td>
+                <td class="dur"   :style="{'--v': m[1].dur   / _m.dur  }">dur: {{dur(m[1].dur)}}</td>
+                <td class="d_pos" :style="{'--v': m[1].d_pos / _m.d_pos}">D+: {{m[1].d_pos}} m</td>
                 <td>D-: {{m[1].d_neg}} m</td>
             </tr>
         </table>
@@ -95,6 +122,7 @@
             showAll: false,
             showWeekly: true,
             showMonthly: true,
+            showYearly: true,
             showWeeklyDetails: true,
         }),
         mounted() {
@@ -126,6 +154,11 @@
                 let h = parseInt(mins/60)
                 let m = ''+parseInt(mins - h*60)
                 return h + 'h' + m.padStart(2, '0')
+            },
+            reload() {
+                let p = this.path
+                this.path = ''
+                setTimeout(() => {this.path = p}, 1)
             },
         }
         })</script>

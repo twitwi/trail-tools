@@ -10,6 +10,10 @@ import asyncio
 def pairs_to_dict(l):
     return {k:v for (k,v) in l}
 
+def max0(a):
+    if len(a) == 0: return 0
+    else: return np.max(a)
+
 @vuejspython.model
 class App:
     path = "example-journal.md"
@@ -32,12 +36,13 @@ class App:
     def computed_total_distance(self): return int(np.sum([e['dist'] for e in self.entries]))
     def computed_total_dplus(self): return int(np.sum([e['d_pos'] for e in self.entries if e['d_pos'] is not None]))
     def computed_total_dminus(self): return int(np.sum([e['d_neg'] for e in self.entries if e['d_neg'] is not None]))
-    def aggregate(self, entries):
+    
+    def aggregate(self, entries, agg=np.sum):
         return {
-            'dist': int(np.sum([e['dist'] for e in entries])),
-            'd_pos': int(np.sum([e['d_pos'] for e in entries if e['d_pos'] is not None])),
-            'd_neg': int(np.sum([e['d_neg'] for e in entries if e['d_neg'] is not None])),
-            'dur': int(np.sum([e['dur'] for e in entries if e['dur'] is not None])),
+            'dist': int(agg([e['dist'] for e in entries])),
+            'd_pos': int(agg([e['d_pos'] for e in entries if e['d_pos'] is not None])),
+            'd_neg': int(agg([e['d_neg'] for e in entries if e['d_neg'] is not None])),
+            'dur': int(agg([e['dur'] for e in entries if e['dur'] is not None])),
         }
 
     def computed_weekly_stats(self):
@@ -56,22 +61,33 @@ class App:
         res = [(m, self.aggregate(groups[m])) for m in months]
         return res
 
+    def computed_yearly_stats(self):
+        years = list(reversed(sorted(list(set((e['date'][:4] for e in self.entries))))))
+        groups = { m: [] for m in years }
+        for e in self.entries:
+            groups[e['date'][:4]].append(e)
+        res = [(m, self.aggregate(groups[m])) for m in years]
+        return res
+
     def computed_weekly_stats_dict(self): return pairs_to_dict(self.weekly_stats)
     def computed_monthly_stats_dict(self): return pairs_to_dict(self.monthly_stats)
+    def computed_yearly_stats_dict(self): return pairs_to_dict(self.yearly_stats)
 
+    def computed_max_daily_stats(self): return self.aggregate(self.entries, agg=max0)
+    def computed_max_weekly_stats(self): return self.aggregate([t[1] for t in self.weekly_stats], agg=max0)
+    def computed_max_monthly_stats(self): return self.aggregate([t[1] for t in self.monthly_stats], agg=max0)
+    def computed_max_yearly_stats(self): return self.aggregate([t[1] for t in self.yearly_stats], agg=max0)
 
     async def doCall(self, what, e, cwd, *cmd):
+        if e is None:
+            e = {'date': 'global'}
         r = {
             'id': what+'--'+e['date']+'--'+str(random.random()),
             'text': what+'('+e['date']+')',
         }
         self.currentlyRunning.append(r)
         proc = await asyncio.create_subprocess_shell(' '.join(cmd))
-
         await asyncio.wait_for(proc.wait(), timeout=None)
-        
-        #await self.asyncCall(' '.join(cmd), cwd=cwd, shell=True)
-        #self.currentlyRunning = [rr for rr in self.currentlyRunning if r is not rr]
         self.currentlyRunning.remove(r)
 
 
@@ -85,6 +101,11 @@ class App:
             go('python3', '$HOME/projects/trail-tools/to-import/gpxlib.py', str(e['date'])+'*.gpx')
         elif what == 'gpxsee':
             go('gpxsee', str(e['date'])+'*.gpx')
+        elif what == 'edit-logs':
+            go('emacs', self.path)
+        elif what == 'edit-notes':
+            import re
+            go('emacs', re.sub(r'[.]md$', r'-notes.md', self.path))
 
 vuejspython.start(App())
 
