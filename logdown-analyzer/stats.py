@@ -107,6 +107,6 @@ class App:
             import re
             go('emacs', re.sub(r'[.]md$', r'-notes.md', self.path))
 
-vuejspython.start(App())
+vuejspython.start(App(), py_port=42999)
 
 
