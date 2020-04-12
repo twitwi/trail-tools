@@ -20,16 +20,24 @@ def max0(a):
 
 def add_points_from_all(agg, step, gpx_files):
     for gpx in gpx_files:
+        print(gpx)
         add_points(agg, step, gpx)
 
 def add_points(agg, step, gpx_path):
     with open(gpx_path, 'r') as gpx_file:
         gpx = parser.parse(gpx_file)
+    prev = None
     for (point, t, s, i) in gpx.walk():
-        y = int(point.latitude / step)
-        x = int(point.longitude / step)
-        #print(point.latitude, point.longitude)
-        agg[y, x] += 1
+        #if prev is None:
+            y = int(point.latitude / step)
+            x = int(point.longitude / step)
+            agg[y, x] += 1
+        #else:
+        #    for α in np.linspace(0, 1, 1, endpoint=False):
+        #        y = int((α*prev.latitude  + (1-α)*point.latitude ) / step)
+        #        x = int((α*prev.longitude + (1-α)*point.longitude) / step)
+        #        agg[y, x] += 1
+        #prev = point
     #print("{} tracks loaded".format(len(gpx)))
     #for track in gpx:
     #    print('Track with {} segments and {} points'.
