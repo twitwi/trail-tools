@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>GPX history explorer</title>
+  <script src="lib/vue.min.js"></script>
+  <link rel="stylesheet" href="lib/picnic.min.css" />
+  <style>
+  .map {
+      background: black;
+      position: relative;
+      border: 1px solid blueviolet;
+      width: calc(300 * 5px);
+      height: calc(200 * 5px);
+        }
+   .map>div {
+      pointer-events: none;
+      position: absolute;
+      box-sizing: border-box;
+      /*border: 1px solid white;*/
+      border-radius: 50%;
+      width: 5px;
+      height: 5px;
+      display: none;
+   }
+   .map>div.i0 {
+      background: red;
+      opacity: 0.2;
+      display: block;
+    }
+    :not(.clicked)+*+.map:hover>div.i1 {
+      background: green;
+      width: 10px;
+      height: 10px;
+      display: block;
+    }
+    .clicked+*+.map>div.i2 {
+      background: burlywood;
+      width: 20px;
+      height: 20px;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  
+    <div id="main" @click="clicked = !clicked">
+        <div :class="{clicked}">{{info}}</div>
+        <div>...</div>
+        <div class="map" @click.shift.prevent="
+        offset_view(
+             parseInt((($event.offsetX / 1500) - 0.5) * view_w),
+            -parseInt((($event.offsetY / 1000) - 0.5) * view_h)
+        )
+        ">
+            <div
+            v-for="([y,x,v],i) in image0"
+            :key="y*1000+x"
+            class="i0"
+            :style="{left: (5*(x-1))+'px', top: (5*y)+'px'}">
+            </div>
+            <div
+            v-for="([y,x,v],i) in image1"
+            :key="y*1000+x"
+            class="i1"
+            :style="{left: (10*(x-1))+'px', top: (10*y)+'px', transform: 'scale('+Math.sqrt(.1+.9*v/100)+')'}">
+            </div>
+            <div
+            v-for="([y,x,v],i) in image2"
+            :key="y*1000+x"
+            class="i2"
+            :style="{left: (20*(x-1))+'px', top: (20*y)+'px', transform: 'scale('+Math.sqrt(.1+.9*v/100)+')'}">
+            </div>
+        </div>
+    </div>
+
+    <script src="lib/vuejspython.js"></script>
+    <script>vuejspython.start({
+        data: () => ({
+            level: 1,
+            clicked: false,
+        }),
+        mounted() {
+        },
+        computed: {
+        },
+        methods: {
+            set() { return undefined; },
+        }
+        }, 'ws://localhost:42989')</script>
+
+</body>
+</html>
