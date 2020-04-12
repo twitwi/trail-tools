@@ -75,42 +75,33 @@ class App:
         add_points_from_all(self.l1, self.l0step*2, self.all_gpx)
 
         self.l2 = dok_matrix((self.l0H//4, self.l0W//4)) #, dtype=np.int8)
-        add_points_from_all(self.l1, self.l0step*4, self.all_gpx)
+        add_points_from_all(self.l2, self.l0step*4, self.all_gpx)
+
+    def do_compute_image(self, level, vx, vy, vw, vh):
+        scale = 2**level
+        x = vx//scale
+        y = vy//scale
+        w = vw//scale
+        h = vh//scale
+        arr = getattr(self, 'l'+str(level))[y:y+h,x:x+w]
+        arr = arr[::-1, :]
+        arr /= arr.tocsr().max()
+        res = [(int(u), int(v), int(arr[u,v]*100)) for (i,(u,v)) in enumerate(zip(*(arr.nonzero())))] # sparse: list of (i,j,v)
+        return res
 
     def computed_image0(self):
-        arr = self.l0[self.view_y:self.view_y+self.view_h, self.view_x:self.view_x+self.view_w]
-        arr = arr[::-1, :]
-        res = [(int(u), int(v), arr[u,v]) for (i,(u,v)) in enumerate(zip(*(arr.nonzero())))] # sparse: list of (i,j,v)
-        return res
+        return self.do_compute_image(0, self.view_x, self.view_y, self.view_w, self.view_h)
 
     def computed_image1(self):
-        x = self.view_x//2
-        y = self.view_y//2
-        w = self.view_w//2
-        h = self.view_h//2
-        arr = self.l1[y:y+h,x:x+w]
-        arr = arr[::-1, :]
-        arr /= arr.tocsr().max()
-        res = [(int(u), int(v), int(arr[u,v]*100)) for (i,(u,v)) in enumerate(zip(*(arr.nonzero())))] # sparse: list of (i,j,v)
-        return res
+        return self.do_compute_image(1, self.view_x, self.view_y, self.view_w, self.view_h)
 
     def computed_image2(self):
-        x = self.view_x//4
-        y = self.view_y//4
-        w = self.view_w//4
-        h = self.view_h//4
-        arr = self.l1[y:y+h,x:x+w]
-        arr = arr[::-1, :]
-        arr /= arr.tocsr().max()
-        res = [(int(u), int(v), int(arr[u,v]*100)) for (i,(u,v)) in enumerate(zip(*(arr.nonzero())))] # sparse: list of (i,j,v)
-        return res
+        return self.do_compute_image(2, self.view_x, self.view_y, self.view_w, self.view_h)
 
-    #@vuejspython.atomic # BUG
+    @vuejspython.atomic # BUG
     def offset_view(self, dx, dy):
-        print("##########",dx,dy)
-        self.view_x += dx
-        self.view_y += dy
-        #return ""
+        self.view_x += int(dx)
+        self.view_y += int(dy)
 
 vuejspython.start(App(), py_port=42989)
 

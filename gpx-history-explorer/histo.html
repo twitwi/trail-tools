@@ -8,11 +8,24 @@
   <style>
   .map {
       background: black;
+      overflow: hidden;
       position: relative;
       border: 1px solid blueviolet;
       width: calc(300 * 5px);
       height: calc(200 * 5px);
-        }
+    }
+    .map canvas {
+        position: absolute;
+        pointer-events: none;
+        left: 0;
+        top: 0;
+    }
+    .map:not(:hover)>canvas.i1 {
+        display: none;
+    }
+    :not(.clicked)+*+.map>canvas.i2 {
+        display: none;
+    }
    .map>div {
       pointer-events: none;
       position: absolute;
@@ -45,15 +58,16 @@
 <body>
   
     <div id="main" @click="clicked = !clicked">
-        <div :class="{clicked}">{{info}}</div>
+        <div :class="{clicked}">
+            {{info}}<br/>
+            {{deltaTimes}}
+        </div>
         <div>...</div>
-        <div class="map" @click.shift.prevent="
-        offset_view(
-             parseInt((($event.offsetX / 1500) - 0.5) * view_w),
-            -parseInt((($event.offsetY / 1000) - 0.5) * view_h)
-        )
-        ">
-            <div
+        <div class="map" @click.shift.prevent="clickMap($event)">
+            <canvas ref="canvas0" class="i0" width="1500" height="1000"></canvas>
+            <canvas ref="canvas1" class="i1" width="1500" height="1000"></canvas>
+            <canvas ref="canvas2" class="i2" width="1500" height="1000"></canvas>
+            <!--div
             v-for="([y,x,v],i) in image0"
             :key="y*1000+x"
             class="i0"
@@ -70,7 +84,7 @@
             :key="y*1000+x"
             class="i2"
             :style="{left: (20*(x-1))+'px', top: (20*y)+'px', transform: 'scale('+Math.sqrt(.1+.9*v/100)+')'}">
-            </div>
+            </div-->
         </div>
     </div>
 
@@ -79,13 +93,69 @@
         data: () => ({
             level: 1,
             clicked: false,
+            times: [],
         }),
         mounted() {
+            this.timeAdd()
+            this.updateCanvas0()
+            this.timeAdd()
+            this.updateCanvas1()
+            this.timeAdd()
+            this.updateCanvas2()
+            this.timeAdd()
+        },
+        watch: {
+            image0() { this.updateCanvas0() },
+            image1() { this.updateCanvas1() },
+            image2() { this.updateCanvas2() },
         },
         computed: {
+            deltaTimes() {
+                return this.times.map((t,i,arr) => i==0 ? 0 : arr[i-1]-t).filter((d,i) => i>0)
+            },
         },
         methods: {
             set() { return undefined; },
+            timeAdd() { this.times.unshift(Date.now()) },
+            updateCanvas(i, scale, fillStyle, fixed=false) {
+                if (this.on_render) {
+                    this.on_render()
+                    this.on_render = null
+                }
+                let S = 5*scale
+                let offX = this.view_x % scale
+                let offY = this.view_y % scale
+                let cvs = this.$refs['canvas'+i]
+                let ctx = cvs.getContext('2d')
+                ctx.clearRect(0, 0, cvs.width, cvs.height);
+                ctx.fillStyle = fillStyle
+                for (let [y,x,v] of this['image'+i]) {
+                    x = (x+0.5-offX/scale)*S
+                    y = (y+0.5+offY/scale)*S
+                    let hw = fixed ? S/2 : Math.sqrt(0.1 + 0.9 * v/100) * S / 2
+                    ctx.fillRect(x-hw, y-hw, 2*hw, 2*hw)
+                }
+
+            },
+            updateCanvas0() {
+                this.updateCanvas(0, 1, '#533', true)
+            },
+            updateCanvas1() {
+                this.updateCanvas(1, 2, '#00FF00')
+            },
+            updateCanvas2() {
+                this.updateCanvas(2, 4, '#00FFFF')
+            },
+            async clickMap(ev) {
+                this.timeAdd()
+                ev.target.querySelectorAll('canvas').forEach(e => e.style.transform = `translate(${750-ev.offsetX}px, ${500-ev.offsetY}px)`)
+                this.on_render = () => {this.timeAdd() ; ev.target.querySelectorAll('canvas').forEach(e => e.style.transform = null)}
+                await this.offset_view(
+                    parseInt(((ev.offsetX / 1500) - 0.5) * this.view_w),
+                    -parseInt(((ev.offsetY / 1000) - 0.5) * this.view_h)
+                )
+                this.timeAdd()
+            },
         }
         }, 'ws://localhost:42989')</script>
 
