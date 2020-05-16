@@ -76,7 +76,7 @@
                         <span @click="runShellCommand('smooth', e)">⛰️</span>
                         <span @click="runShellCommand('gpxsee', e)">🏔️</span>
                     </td>
-                    <td class="dist"  :style="{'--v': e.dist  / _md.dist }">{{e.dist}}km</td>
+                    <td class="dist"  :style="{'--v': e.dist  / _md.dist }" :title="(e.dist / e.dur * 60) + 'km/h'">{{e.dist}}km</td>
                     <td class="dur"   :style="{'--v': e.dur   / _md.dur  }">{{dur(e.dur)}}</td>
                     <td class="d_pos" :style="{'--v': e.d_pos / _md.d_pos}">{{e.d_pos}}+/{{e.d_neg}}-</td>
                 </template>
