@@ -115,7 +115,11 @@ def print_shoes_stats(entries):
         print('D-:', sum([l.d_neg for l in subset if l.d_neg]))
 
 def main():
-    entries = parse_logdown('course-journal.md')
+    import sys
+    f = 'course-journal.md'
+    if len(sys.argv) > 1:
+        f = sys.argv[1]
+    entries = parse_logdown(f)
     print_shoes_stats(entries)
 
     
