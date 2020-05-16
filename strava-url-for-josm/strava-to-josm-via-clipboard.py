@@ -11,10 +11,16 @@ try:
     d = json.loads(d)
     if len(d.keys()) == 1:
         d = d[list(d.keys())[0]]
-    else:
+    elif 'Request cookies' in d:
         d = d['Request cookies']
-except:
-    print()
+    elif 'CloudFront-Policy' in d:
+        d = d # ok
+    else:
+        print('Probably a problem')
+except Exception as e:
+    print(e)
+    print("-------------------")
+    print("-------------------")
     print("Please 'Copy All' on the Network>Cookies on a logged in strava request for heatmap....")
     print()
     exit(1)
