@@ -106,7 +106,7 @@ def parse_logdown(fname):
 def print_shoes_stats(entries):
     print(set((l.shoes for l in entries)))
     
-    for sh in 'addidas roclite roclite2 merrell terraultra'.split(' '):
+    for sh in 'addidas roclite roclite2 merrell terraultra roclite3'.split(' '):
         print()
         print('#', sh)
         subset = [e for e in entries if e.shoes == sh]

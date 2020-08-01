@@ -98,7 +98,7 @@ class App:
         if what == 'generic':
             go('./generic.sh', str(e['date'])+'*.gpx', 'shouldwait=false')
         elif what == 'smooth':
-            go('python3', '$HOME/projects/trail-tools/to-import/gpxlib.py', str(e['date'])+'*.gpx')
+            go('python3', '$HOME/projects/trail-tools/to-import/gpxlib.py', str(e['date'])+'*.gpx', 'old', 'fast')
         elif what == 'gpxsee':
             go('gpxsee', str(e['date'])+'*.gpx')
         elif what == 'edit-logs':
