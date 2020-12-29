@@ -42,6 +42,7 @@
         <div class="global-controls">
             <span @click="runShellCommand('edit-logs', null)">L</span>
             <span @click="runShellCommand('edit-notes', null)">N</span>
+            <span @click="runShellCommand('edit-parcourstest', null)">PT</span>
         </div>
         <div>
             total distance: {{total.dist}} km<br/>
@@ -111,6 +112,18 @@
             </tr>
         </table>
         <hr/>
+        <label><input type="checkbox" v-model="showShoely"/><span class="checkable">Shoely</span></label>
+        <table v-if="showShoely">
+            {{ set(_m = max_shoely_stats) }}
+            <tr v-for="m in shoely_stats">
+                <td>{{m[0]}}</td>
+                <td class="dist"  :style="{'--v': m[1].dist  / _m.dist }">dist: {{m[1].dist}} km</td>
+                <td class="dur"   :style="{'--v': m[1].dur   / _m.dur  }">dur: {{dur(m[1].dur)}}</td>
+                <td class="d_pos" :style="{'--v': m[1].d_pos / _m.d_pos}">D+: {{m[1].d_pos}} m</td>
+                <td>D-: {{m[1].d_neg}} m</td>
+            </tr>
+        </table>
+        <hr/>
         <label><input type="checkbox" v-model="showAll"/><span class="checkable">Show all</span></label>
         <div v-if="showAll" class="all">
             <p v-for="(e,i) in checkedEntries" :key="`entry-${i}`" :class="{issue: e.issue}">
@@ -124,9 +137,10 @@
         data: () => ({
             showAll: false,
             showWeekly: true,
-            showMonthly: true,
-            showYearly: true,
+            showMonthly: false,
+            showYearly: false,
             showWeeklyDetails: true,
+            showShoely: false,
         }),
         mounted() {
             let p = localStorage.getItem('stats_py_path')

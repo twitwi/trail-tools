@@ -62,21 +62,32 @@ class App:
         return res
 
     def computed_yearly_stats(self):
-        years = list(reversed(sorted(list(set((e['date'][:4] for e in self.entries))))))
+        years = list(sorted(list(set((e['date'][:4] for e in self.entries))), reverse=True))
         groups = { m: [] for m in years }
         for e in self.entries:
             groups[e['date'][:4]].append(e)
         res = [(m, self.aggregate(groups[m])) for m in years]
         return res
 
+    def computed_shoely_stats(self):
+        shoes = list(set((e['shoes'] for e in self.entries)))
+        groups = { m: [] for m in shoes }
+        for e in self.entries:
+            groups[e['shoes']].append(e)
+        shoes = sorted(shoes, key=lambda s: groups[s][0]['date'], reverse=True)
+        res = [(m, self.aggregate(groups[m])) for m in shoes]
+        return res
+
     def computed_weekly_stats_dict(self): return pairs_to_dict(self.weekly_stats)
     def computed_monthly_stats_dict(self): return pairs_to_dict(self.monthly_stats)
     def computed_yearly_stats_dict(self): return pairs_to_dict(self.yearly_stats)
+    def computed_shoely_stats_dict(self): return pairs_to_dict(self.shoely_stats)
 
     def computed_max_daily_stats(self): return self.aggregate(self.entries, agg=max0)
     def computed_max_weekly_stats(self): return self.aggregate([t[1] for t in self.weekly_stats], agg=max0)
     def computed_max_monthly_stats(self): return self.aggregate([t[1] for t in self.monthly_stats], agg=max0)
     def computed_max_yearly_stats(self): return self.aggregate([t[1] for t in self.yearly_stats], agg=max0)
+    def computed_max_shoely_stats(self): return self.aggregate([t[1] for t in self.shoely_stats], agg=max0)
 
     async def doCall(self, what, e, cwd, *cmd):
         if e is None:
@@ -96,13 +107,15 @@ class App:
         cwd = self.gpx_cwd
         go = lambda *cmd: asyncio.ensure_future(self.doCall(what, e, cwd, 'cd', cwd, '&&', *cmd))
         if what == 'generic':
-            go('./generic.sh', str(e['date'])+'*.gpx', 'shouldwait=false')
+            go('./generic.sh', str(e['date'])+'*.gpx', 'vel=ddist', 'shouldwait=false')
         elif what == 'smooth':
             go('python3', '$HOME/projects/trail-tools/to-import/gpxlib.py', str(e['date'])+'*.gpx', 'old', 'fast')
         elif what == 'gpxsee':
             go('gpxsee', str(e['date'])+'*.gpx')
         elif what == 'edit-logs':
             go('emacs', self.path)
+        elif what == 'edit-parcourstest':
+            go('libreoffice', '$HOME/projects/nextcloud-mycorecnrs/random/TrainimmXT.xlsx')
         elif what == 'edit-notes':
             import re
             go('emacs', re.sub(r'[.]md$', r'-notes.md', self.path))
