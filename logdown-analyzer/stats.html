@@ -5,6 +5,9 @@
   <title>Stats for run-log</title>
   <script src="lib/vue.min.js"></script>
   <link rel="stylesheet" href="lib/picnic.min.css" />
+  <link rel="stylesheet" href="leaflet.css" />
+  <script src="leaflet.js"></script>
+  <script src="gpx.min.js"></script>
   <style>
       body { margin: 2em; }
       .all { font-size: 60%; }
@@ -30,13 +33,21 @@
       .issue { color: red; }
 
       /* undo huge picnic padding? */
-      td, th { padding-right: .6em; /*instead of 2.4*/
+      td, th { padding-right: .6em; /*instead of 2.4*/ }
 
+      /* */
+      .gpx-list {float: left; font-size: 10px; width: 120px; height: 600px; overflow-y: scroll; margin-left: 0; padding-left: 0;}
+      .gpx-list li:hover {background: beige; cursor: pointer;}
+      #themap {display: inline-block; width: 700px; height: 600px;}
+      .toolbar {vertical-align: top; display: inline-flex; flex-direction: column; }
   </style>
 </head>
 <body>
   
     <div id="main" @click="">
+        <!--
+            -->
+            <my-segments></my-segments>
         path <span class="pointer" @click="reload()">⟲</span>:
         <input v-model="path"/><a class="save" @click="savePath()">save</a>
         <div class="global-controls">
@@ -133,7 +144,144 @@
     </div>
 
     <script src="lib/vuejspython.js"></script>
-    <script>vuejspython.start({
+    <script>
+    function genColors(nHue, nSat) {
+        let res = []
+        for (let i = 0; i < nHue * nSat; i++) {
+            res.push(`hsl(${(i%nHue)*256/nHue}, 100%, ${40+Math.floor(i/nHue)*40/nSat}%)`)
+        }
+        return [...res, ...res, ...res, ...res, ...res, ...res, ...res]
+    }
+
+    /* vuejspython component */
+    vuejspython.component('Segments', 'my-segments', {
+        template: `
+        <div>
+            <div class="toolbar">
+                <button @click="listAllGpx()">all</button>
+                <button @click="listGpxInBox_withfeedback(mymap.getBounds())">here</button>
+                <button @click="all_gpx = all_gpx.slice(5)">rm 5 beg</button>
+                <button @click="all_gpx = all_gpx.slice(0,-5)">rm 5 end</button>
+                <button @click="all_gpx = all_gpx.slice(-100)">keep 100 end</button>
+                <button @click="all_gpx = all_gpx.slice(0, 100)">keep 100 beg</button>
+                <button @click="all_gpx = all_gpx.slice(-10)">keep 10 end</button>
+                <button @click="all_gpx = all_gpx.slice(0, 10)">keep 10 beg</button>
+                <button @click="viewAllAndOnly()">👁 current</button>
+            </div>
+            <ul class="gpx-list">
+                <li v-for="p in all_gpx" :key="p" @click="loadGpx(p)"
+                >{{ p.replace(/.*[/_](....-..-..(_..-..)?)[^/]*/, '$1') }}</li>
+            </ul>
+            <div id="themap" ref="themap"></div>
+        </div>
+        `,
+        data: () => ({
+            colors: genColors(10, 3),
+            cfg: {
+                // tileURL: 'https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw',
+                tileURL: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                center: [45.450678,4.393716],
+                zoom: 16,
+            },
+            fitting: true,
+            regions: []
+        }),
+        methods: {
+            async listGpxInBox_withfeedback(bounds) {
+                this.all_gpx = ['Filtering... wip']
+                await this.$nextTick()
+                await this.listGpxInBox(bounds)
+            },
+            addGpxFile(gpx) {
+                let opts = {
+                    async: true,
+                    gpx_options: {
+                        parseElements: ['track', 'route'],
+                    },
+                    marker_options: {
+                        startIconUrl: null,
+                        endIconUrl: null,
+                        shadowUrl: null,
+                    }
+                }
+                new L.GPX(gpx, {
+                    ...opts,
+                    polyline_options: {
+                        color: `hsl(${Math.random()*255}, 50%, 50%)`,
+                        opacity: 0.75,
+                        weight: 6,
+                        smoothFactor: 10,
+                    }
+                }).on('loaded', (e) => {
+                    if (this.fitting) {
+                        this.mymap.fitBounds(e.target.getBounds())
+                    }
+                    new L.GPX(gpx, {
+                        ...opts,
+                        polyline_options: {
+                            color: `black`,
+                            weight: 1,
+                            smoothFactor: 10,
+                        }
+                    }).addTo(this.mymap)
+                }).addTo(this.mymap)
+            },
+            removeAllGpx() {
+                this.mymap.eachLayer(l => { if ('_gpx' in l) l.remove() })
+            },
+            async viewAllAndOnly() {
+                this.fitting = false
+                this.removeAllGpx()
+                for (let p of this.all_gpx) {
+                    let gpx = await this.readGpxFile(p)
+                    this.addGpxFile(gpx)
+                }
+                this.fitting = true
+            },
+            async loadGpx(p) {
+                let gpx = await this.readGpxFile(p)
+                this.addGpxFile(gpx)
+            },
+            onclick(e) {
+                if (e.originalEvent.shiftKey) return
+                let map = this.mymap
+                //console.log(e.latlng)
+                let {lat, lng} = e.latlng
+                let reg = [lat, lng, 10]
+                this.regions.push(reg) // radius in meters
+                let circle = L.circle([reg[0], reg[1]], {radius: reg[2], color: this.colors[this.regions.length-1]}).addTo(map)
+                let grabbed = false
+                circle.on({
+                    click: (e) => {
+                        L.DomEvent.stopPropagation(e.originalEvent)
+                        grabbed = !grabbed
+                        if (grabbed) {
+                            map.on('mousemove', (e) => {
+                                circle.setLatLng(e.latlng)
+                                reg[0] = e.latlng.lat
+                                reg[1] = e.latlng.lng
+                            })
+                        } else {
+                            map.off('mousemove')
+                        }
+                    }
+                })
+            },
+        },
+        mounted() {
+            this.mymap = L.map('themap').setView(this.cfg.center, this.cfg.zoom)
+            L.tileLayer(this.cfg.tileURL, {
+                maxZoom: 18,
+                attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, ',
+                /*
+                id: 'mapbox/streets-v11',
+                tileSize: 512,
+                zoomOffset: -1*/
+            }).addTo(this.mymap)
+            this.mymap.on('click', this.onclick.bind(this))
+        }
+    })
+    vuejspython.start({
         data: () => ({
             showAll: false,
             showWeekly: true,
@@ -144,6 +292,7 @@
         }),
         mounted() {
             let p = localStorage.getItem('stats_py_path')
+            //let p = localStorage.getItem('stats_py_pathTMP')
             if (p !== null) {
                 this.$set(this, 'path', p)
             }
@@ -158,6 +307,7 @@
             set() { return undefined; },
             savePath() {
                 localStorage.setItem('stats_py_path', this.path)
+                //localStorage.setItem('stats_py_pathTMP', this.path)
             },
             entriesInWeek(entries, i, week) {
                 let c = 0;
@@ -178,7 +328,8 @@
                 setTimeout(() => {this.path = p}, 1)
             },
         }
-        }, 'ws://localhost:42999')</script>
+        }, 'ws://localhost:42999')
+        </script>
 
 </body>
 </html>

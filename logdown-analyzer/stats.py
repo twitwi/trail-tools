@@ -7,6 +7,8 @@ from pathlib import Path
 import random
 import asyncio
 
+import segments
+
 def pairs_to_dict(l):
     return {k:v for (k,v) in l}
 
