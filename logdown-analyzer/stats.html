@@ -45,9 +45,12 @@
 <body>
   
     <div id="main" @click="">
-        <!--
-            -->
-            <my-segments></my-segments>
+        <article class="card">
+            <header>
+                <h4><label><input type="checkbox" v-model="showSegments"/><span class="checkable">Segments</span></label></h4>
+            </header>
+            <my-segments v-if="showSegments"></my-segments>
+        </article>
         path <span class="pointer" @click="reload()">⟲</span>:
         <input v-model="path"/><a class="save" @click="savePath()">save</a>
         <div class="global-controls">
@@ -184,7 +187,8 @@
                 zoom: 16,
             },
             fitting: true,
-            regions: []
+            regions: [],
+            movingRegion: false,
         }),
         methods: {
             async listGpxInBox_withfeedback(bounds) {
@@ -243,6 +247,7 @@
                 this.addGpxFile(gpx)
             },
             onclick(e) {
+                if (this.movingRegion) return
                 if (e.originalEvent.shiftKey) return
                 let map = this.mymap
                 //console.log(e.latlng)
@@ -256,12 +261,16 @@
                         L.DomEvent.stopPropagation(e.originalEvent)
                         grabbed = !grabbed
                         if (grabbed) {
+                            this.movingRegion = true
                             map.on('mousemove', (e) => {
                                 circle.setLatLng(e.latlng)
                                 reg[0] = e.latlng.lat
                                 reg[1] = e.latlng.lng
                             })
                         } else {
+                            this.$nextTick(() => {
+                                this.movingRegion = false
+                            })
                             map.off('mousemove')
                         }
                     }
@@ -289,6 +298,7 @@
             showYearly: false,
             showWeeklyDetails: true,
             showShoely: false,
+            showSegments: true,
         }),
         mounted() {
             let p = localStorage.getItem('stats_py_path')
