@@ -22,6 +22,8 @@
       td:last-child { border-right: 1px solid black; }
       td:nth-last-child(-n+3) { font-size: 70%; }
 
+      .segments td:nth-last-child(n+1) { font-size: 70%; }
+
       td { position: relative; }
       td[style]::after { content: ''; background: blue; position: absolute; left: 2%; width: calc(var(--v) * 96%); bottom: 0; height: 100%/*.3em*/; opacity: 0.15; }
       td.dur::after { background: darkgreen; }
@@ -159,7 +161,7 @@
     /* vuejspython component */
     vuejspython.component('Segments', 'my-segments', {
         template: `
-        <div>
+        <div class="segments">
             <div class="toolbar">
                 <button @click="listAllGpx()">all</button>
                 <button @click="listGpxInBox_withfeedback(mymap.getBounds())">here</button>
@@ -170,16 +172,30 @@
                 <button @click="all_gpx = all_gpx.slice(-10)">keep 10 end</button>
                 <button @click="all_gpx = all_gpx.slice(0, 10)">keep 10 beg</button>
                 <button @click="viewAllAndOnly()">👁 current</button>
+                <button @click="computeTable()">... table</button>
             </div>
             <ul class="gpx-list">
                 <li v-for="p in all_gpx" :key="p" @click="loadGpx(p)"
                 >{{ p.replace(/.*[/_](....-..-..(_..-..)?)[^/]*/, '$1') }}</li>
             </ul>
             <div id="themap" ref="themap"></div>
+            <div>
+                <table>
+                    <tr>
+                        <th @click="kview = kview == 'cumul' ? 'delta' : 'cumul'">({{kview}})</th>
+                        <th v-for="c in table.cols" :key="c.id" :style="{'background-color': c.color}">REG</th>
+                    </tr>
+                    <tr v-for="r,ir in table.rows">
+                        <td v-for="c,ic in table.cols" :key="c.id"
+                        :style="ic>0 ? {} : {'background-color': r.color}"
+                        :colspan="ic>0 ? 1 : 2">{{ table.data[ir][c.id] ? table.data[ir][c.id][kview] : '...' }}</td>
+                    </tr>
+                </table>
+            </div>
         </div>
         `,
         data: () => ({
-            colors: genColors(10, 3),
+            colors: genColors(9, 4),
             cfg: {
                 // tileURL: 'https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw',
                 tileURL: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -189,6 +205,12 @@
             fitting: true,
             regions: [],
             movingRegion: false,
+            table: {
+                rows: [],
+                cols: [],
+                data: [],
+            },
+            kview: 'delta', // delta, cumul
         }),
         methods: {
             async listGpxInBox_withfeedback(bounds) {
@@ -210,6 +232,7 @@
                 }
                 new L.GPX(gpx, {
                     ...opts,
+                    isRef: true,
                     polyline_options: {
                         color: `hsl(${Math.random()*255}, 50%, 50%)`,
                         opacity: 0.75,
@@ -233,6 +256,42 @@
             removeAllGpx() {
                 this.mymap.eachLayer(l => { if ('_gpx' in l) l.remove() })
             },
+            computeTable() {
+                let tracks = Object.values(this.mymap._layers).filter(l => l._gpx && l.options.isRef)
+                let regions = Object.values(this.mymap._layers).filter(l => l.options.isRegion)
+                let cols = regions.map(r => ({...r.options, ...r._latlng, id: r._leaflet_id}))
+                let rows = []
+                let data = []
+                for (let t of tracks) {
+                    let trackColor = t.options.polyline_options.color
+                    let waitingFor = 0
+                    let lastTime = 0
+                    let firstTime = 0
+                    for (let ll of Object.values(t._layers)[0]._latlngs) {
+                        let r = regions[waitingFor]
+                        let rId = r._leaflet_id
+                        if (t._dist2d(r._latlng, ll) < r.options.radius) {
+                            if (waitingFor == 0) {
+                                rows.push({color: trackColor})
+                                data.push({})
+                                let v = ll.meta.time.toISOString().substr(0, 19).replaceAll('T', ' ')
+                                data[data.length-1][rId] = {delta: v, cumul: v}
+                                firstTime = ll.meta.time
+                            } else {
+                                data[data.length - 1][rId] = {
+                                    delta: '+' + (new Date(ll.meta.time - lastTime).toISOString().substr(11, 8)).replace(/^00:/, ''),
+                                    cumul: '+' + (new Date(ll.meta.time - firstTime).toISOString().substr(11, 8)).replace(/^00:/, ''),
+                                }
+                            }
+                            lastTime = ll.meta.time
+                            waitingFor = (waitingFor+1)%regions.length
+                        }
+                    }
+                }
+                // gpx.options.polyline_options.color
+                //Object.values(gpx._layers)[0]._latlngs
+                this.table = { cols, rows, data }
+            },
             async viewAllAndOnly() {
                 this.fitting = false
                 this.removeAllGpx()
@@ -254,7 +313,7 @@
                 let {lat, lng} = e.latlng
                 let reg = [lat, lng, 10]
                 this.regions.push(reg) // radius in meters
-                let circle = L.circle([reg[0], reg[1]], {radius: reg[2], color: this.colors[this.regions.length-1]}).addTo(map)
+                let circle = L.circle([reg[0], reg[1]], {radius: reg[2], color: this.colors[this.regions.length-1], isRegion: true}).addTo(map)
                 let grabbed = false
                 circle.on({
                     click: (e) => {
