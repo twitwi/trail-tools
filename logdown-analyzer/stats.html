@@ -203,8 +203,7 @@
                 zoom: 16,
             },
             fitting: true,
-            regions: [],
-            movingRegion: false,
+            movingRegion: null,
             table: {
                 rows: [],
                 cols: [],
@@ -213,6 +212,21 @@
             kview: 'delta', // delta, cumul
         }),
         methods: {
+            promptSetRadius(i) {
+                if (i === -1) return
+                let v = window.prompt("Radius", this.getRegions()[i].getRadius())
+                if (v !== null) {
+                    v = parseFloat(v)
+                    if (!isNaN(v)) {
+                        this.getRegions()[i].setRadius(v)
+                    }
+                }
+            },
+            promptDelete(i) {
+                if (window.confirm("Delete region?")) {
+                    this.getRegions()[i].remove()
+                }
+            },
             async listGpxInBox_withfeedback(bounds) {
                 this.all_gpx = ['Filtering... wip']
                 await this.$nextTick()
@@ -256,9 +270,12 @@
             removeAllGpx() {
                 this.mymap.eachLayer(l => { if ('_gpx' in l) l.remove() })
             },
+            getRegions() {
+                return Object.values(this.mymap._layers).filter(l => l.options.isRegion)
+            },
             computeTable() {
                 let tracks = Object.values(this.mymap._layers).filter(l => l._gpx && l.options.isRef)
-                let regions = Object.values(this.mymap._layers).filter(l => l.options.isRegion)
+                let regions = this.getRegions()
                 let cols = regions.map(r => ({...r.options, ...r._latlng, id: r._leaflet_id}))
                 let rows = []
                 let data = []
@@ -270,7 +287,8 @@
                     for (let ll of Object.values(t._layers)[0]._latlngs) {
                         let r = regions[waitingFor]
                         let rId = r._leaflet_id
-                        if (t._dist2d(r._latlng, ll) < r.options.radius) {
+                        let radius = r.getRadius()
+                        if (t._dist2d(r._latlng, ll) < radius) {
                             if (waitingFor == 0) {
                                 rows.push({color: trackColor})
                                 data.push({})
@@ -312,15 +330,14 @@
                 //console.log(e.latlng)
                 let {lat, lng} = e.latlng
                 let reg = [lat, lng, 10]
-                this.regions.push(reg) // radius in meters
-                let circle = L.circle([reg[0], reg[1]], {radius: reg[2], color: this.colors[this.regions.length-1], isRegion: true}).addTo(map)
+                let circle = L.circle([reg[0], reg[1]], {radius: reg[2], color: this.colors[this.getRegions().length], isRegion: true}).addTo(map)
                 let grabbed = false
                 circle.on({
                     click: (e) => {
                         L.DomEvent.stopPropagation(e.originalEvent)
                         grabbed = !grabbed
                         if (grabbed) {
-                            this.movingRegion = true
+                            this.movingRegion = circle
                             map.on('mousemove', (e) => {
                                 circle.setLatLng(e.latlng)
                                 reg[0] = e.latlng.lat
@@ -328,12 +345,25 @@
                             })
                         } else {
                             this.$nextTick(() => {
-                                this.movingRegion = false
+                                this.movingRegion = null
                             })
                             map.off('mousemove')
                         }
                     }
                 })
+            },
+            onkeypress(e) {
+                let ir = this.movingRegion ? this.getRegions().indexOf(this.movingRegion) : this.getRegions().length - 1
+                let r = this.getRegions()[ir]
+                if (e.originalEvent.key === 'd') {
+                    this.promptDelete(ir)
+                }
+                if (e.originalEvent.key === 'a') {
+                    this.promptSetRadius(ir)
+                    L.DomEvent.stopPropagation(e.originalEvent)
+                    return
+                }
+
             },
         },
         mounted() {
@@ -347,6 +377,7 @@
                 zoomOffset: -1*/
             }).addTo(this.mymap)
             this.mymap.on('click', this.onclick.bind(this))
+            this.mymap.on('keypress', this.onkeypress.bind(this))
         }
     })
     vuejspython.start({
