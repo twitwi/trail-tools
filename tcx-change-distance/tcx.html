@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>TCX Indoor Fix</title>
+</head>
+<body>
+    <style>
+        #out[href=""] { display: none; }
+    </style>
+    <label>
+        Distance
+        <input type="number" id="distance" value="10.0"> km
+    </label>
+    <hr/>
+    <label>
+        TCX (browse or drop a file)
+        <input type="file" id="tcx" style="display: block; border: 5px grey dashed; padding: 5em;">
+    </label>
+    <hr/>
+    <a href="" download="fixed.tcx" id="out">(re)download</a>
+
+    <script>
+        const [eTcx, eDistance, eOut] = 'tcx distance out'.split(' ').map(n => document.querySelector('#'+n))
+        eTcx.addEventListener('change', ev => {
+            const f = eTcx.files[0]
+            const reader = new FileReader()
+            reader.onload = () => {
+                const d = parseFloat(eDistance.value.replace(',', '.')) * 1000
+                const res = reader.result
+                const dom = new DOMParser().parseFromString(res, 'text/xml')
+                const patch = sel => dom.querySelectorAll(sel).forEach(e => e.innerHTML = d)
+                patch('Lap:first-of-type > DistanceMeters')
+                patch('Lap:last-of-type Trackpoint:last-of-type DistanceMeters')
+                const out = new XMLSerializer().serializeToString(dom)
+                eOut.setAttribute('href', globalThis.URL.createObjectURL(new Blob([out], {type: 'text/xml'})))
+                eOut.setAttribute('download', f.name.replace(/[.][^.]*$/, '--'+eDistance.value+'.tcx'))
+                eOut.click()
+            }
+            reader.readAsText(f)
+        }, false)
+    </script>
+
+</body>
+</html>
+
