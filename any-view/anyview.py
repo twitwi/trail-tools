@@ -45,8 +45,15 @@ def main(argv):
             bpm, rr = hrm.load(f, start_at=trunc_start, end_at=trunc_end)
             if bpm.shape[0] > 1:
                 #np.savetxt('/tmp/hrm.csv', bpm, delimiter=',')
-                alldatarr.append(bpm)
-                infos.append(f + '[bpm]')
+                if has_env('INVBPM'):
+                    bpm[:,1] = 60*1000/bpm[:,1]
+                    alldatarr.append(bpm)
+                    infos.append(f + '[ms/bpm]')
+                else:
+                    alldatarr.append(bpm)
+                    infos.append(f + '[bpm]')
+                if has_env('OFFSETINV'):
+                    bpm[:,0] -= 9
             if rr.shape[0] > 1:
                 if False: # wip explore rr fix
                     ax1 = plt.gcf().add_subplot(2,1,1)
@@ -89,6 +96,26 @@ def main(argv):
             infos.append(f + '[steps]')
         elif f[-3:]=='.db':
             print("Expects .db to contain either STEPS or HRM, skipping", f)
+        elif f[:3]=='LOG' or '/LOG' in f:
+            import pipetools
+            import scipy as sp
+            oxy = np.array(list(
+                pipetools.cat(f)
+                | pipetools.json()
+                | pipetools.where(lambda o: o['type'] == 'wave' and not o['sensor_off'])
+                | pipetools.select(lambda o: [o['parse_time'], o['ppg']])
+            ))
+            #oxy[:,1] *= 1000
+            alldatarr.append(np.copy(oxy))
+            infos.append(f.split('/')[-1] + '[ppg][oxy]')
+            oxy[:,1] = np.convolve(oxy[:,1], np.ones(3), "same")
+            oxy[:,1] = np.diff(oxy[:,1], prepend=oxy[0,1])
+            peakloc = sp.signal.find_peaks(oxy[:,1], distance=20, prominence=5, wlen=200, height=0.1)[0]
+            intraRR = oxy[peakloc, :]
+            intraRR[:, 1] = 1000*np.diff(intraRR[:, 0], prepend=2*intraRR[0,0]-intraRR[1,0])
+            print(np.mean(intraRR[:,1]))
+            alldatarr.append(intraRR)
+            infos.append(f.split('/')[-1] + '[rr][oxy]')
         else:
             csv = np.genfromtxt(f, delimiter=',')
             alldatarr.append(csv[:,:3])
@@ -272,14 +299,27 @@ def main(argv):
             ax1.tick_params(axis='y', colors=c)
             ax1.grid()
             #ax1.set_ylim(0, (np.max(data[:,1])//100+1)*100)
-        elif has_suffix('[rr]'):
+        elif has_suffix('[ms/bpm]'):
+            skip(ax1, ax2, label="1000/reported BPM: " + nosuff)
+            p = ax3.plot(ad, data[:, 1])
+            c = p[0].get_color()
+            ax3.grid(color=c, linestyle='dotted', alpha=0.75)
+            ax3.tick_params(axis='y', colors=c)
+            #ax3.grid()
+            #ax1.set_ylim(0, (np.max(data[:,1])//100+1)*100)
+        elif has_suffix('[rr][oxy]'):
+            skip(ax1, ax2, label='oxyRR: ' + nosuff)
             p = ax3.plot(ad, data[:, 1], ls='dotted')
             c = p[0].get_color()
             ax3.tick_params(axis='y', colors=c)
+        elif has_suffix('[rr]'):
             skip(ax1, ax2, label='Intra RR: ' + nosuff)
+            p = ax3.plot(ad, data[:, 1], ls='dotted')
+            c = p[0].get_color()
+            ax3.tick_params(axis='y', colors=c)
             #ax1.plot(rr[:, 0], 60000/rr[:, 1], label="bpm from intra RR")
         elif has_suffix('[csv]'):
-            p = ax1.plot(ad, data[:, 1], label="Steps: " + nosuff)
+            p = ax1.plot(ad, data[:, 1], label="csv: " + nosuff)
             c = p[0].get_color()
             skip(ax2, ax3)
             ax1.grid(color=c, linestyle='dashed')
