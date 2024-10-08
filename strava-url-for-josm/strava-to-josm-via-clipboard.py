@@ -26,7 +26,13 @@ except Exception as e:
     exit(1)
 
 url = 'tms[3,15]:https://heatmap-external-b.strava.com/tiles-auth/run/hot/{zoom}/{x}/{y}.png?v=19&'+f'Key-Pair-Id={d["CloudFront-Key-Pair-Id"]}&Signature={d["CloudFront-Signature"]}&Policy={d["CloudFront-Policy"]}'
-print("Copying to clipboard")
+print("-------------------")
+print("Use this for josm:")
+print("-------------------")
+print(url)
+print("-------------------")
+url = 'https://heatmap-external-b.strava.com/tiles-auth/run/hot/{z}/{x}/{y}.png?v=19&'+f'Key-Pair-Id={d["CloudFront-Key-Pair-Id"]}&Signature={d["CloudFront-Signature"]}&Policy={d["CloudFront-Policy"]}'
+print("Copying to clipboard (for brouter)")
 print("-----")
 print(url)
 print("-----")
