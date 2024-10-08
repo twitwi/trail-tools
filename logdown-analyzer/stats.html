@@ -42,6 +42,9 @@
       .gpx-list li:hover {background: beige; cursor: pointer;}
       #themap {display: inline-block; width: 700px; height: 600px;}
       .toolbar {vertical-align: top; display: inline-flex; flex-direction: column; }
+
+      .click-pointer { cursor:pointer; }
+      .segment-table>tr:nth-child(n+1)>td:first { text-align: right; font-size: 50%; font-family: monospace; }
   </style>
 </head>
 <body>
@@ -80,7 +83,6 @@
                 {{ set(_week = 0) }}
                 <template v-if="i==0 || e.week !== entries[i-1].week">
                     {{ set(_nb = entriesInWeek(entries, i, e.week)) }}
-                    {{ set(window.console.log(e.week))}}
                     {{ set(_stat = weekly_stats_dict[e.week]) }}
                     <td :class="`w w-${_week} w2-${_week%2} w3-${_week%3}`" :rowspan="_nb" style="border: 1px solid black">W:{{e.week}}</td>
                     <td class="dist"  :rowspan="_nb" :style="{'--v': _stat.dist  / _m.dist }">{{_stat.dist}}km</td>
@@ -180,12 +182,21 @@
             </ul>
             <div id="themap" ref="themap"></div>
             <div>
-                <table>
+                <table class="segment-table">
                     <tr>
-                        <th @click="kview = kview == 'cumul' ? 'delta' : 'cumul'">({{kview}})</th>
-                        <th v-for="c in table.cols" :key="c.id" :style="{'background-color': c.color}">REG</th>
+                        <th @click="kview = kview == 'cumul' ? 'delta' : 'cumul'" colspan="2">({{kview}})</th>
+                        <th v-for="c in table.cols" :key="c.id" :style="{'background-color': c.color}"
+                            @click="centerOnRegion(c.self)"
+                            @click.prevent.right="promptDelete(c.self)"
+                            draggable @dragstart="dragRegionStart(c.self, $event)"
+                            @dragover.prevent="$event.dataTransfer.dropEffect = 'move';"
+                            @drop.prevent="dragRegionDrop(c.self, $event)">REG</th>
+                        <th @click="reverseRegionList()" class="click-pointer">⇐</th>
+                        <th @click="computeTable()" class="click-pointer">🔄</th>
+                        <th @click="recolorRegions()" class="click-pointer">🌈</th>
                     </tr>
                     <tr v-for="r,ir in table.rows">
+                        <td>{{ir+1}}</td>
                         <td v-for="c,ic in table.cols" :key="c.id"
                         :style="ic>0 ? {} : {'background-color': r.color}"
                         :colspan="ic>0 ? 1 : 2">{{ table.data[ir][c.id] ? table.data[ir][c.id][kview] : '...' }}</td>
@@ -202,6 +213,7 @@
                 center: [45.450678,4.393716],
                 zoom: 16,
             },
+            createRadius: 15,
             fitting: true,
             movingRegion: null,
             table: {
@@ -224,8 +236,51 @@
             },
             promptDelete(i) {
                 if (window.confirm("Delete region?")) {
+                    this.removeRegion(i)
+                    this.computeTable()
+                }
+            },
+            removeRegion(i) {
+                if (i._leaflet_id) {
+                    i.remove()
+                } else {
                     this.getRegions()[i].remove()
                 }
+            },
+            recolorRegions() {
+                for (let [i, r] of Object.entries(this.getRegions())) {
+                    r.setStyle({color: this.colors[i]})
+                }
+                this.computeTable()
+            },
+            centerOnRegion(r) {
+                this.mymap.panTo(r.getBounds().getCenter())
+            },
+            reverseRegionList() {
+                this._.regions.reverse()
+                this.computeTable()
+            },
+            dragRegionStart(r, ev) {
+                ev.dataTransfer.setData("text/plain", r._leaflet_id);
+            },
+            dragRegionDrop(r, ev) {
+                const dragId = parseInt(ev.dataTransfer.getData("text/plain"));
+                const dropId = r._leaflet_id;
+                const from = this._.regions.indexOf(dragId)
+                const to = this._.regions.indexOf(dropId)
+                this._.regions.splice(from, 1)
+                this._.regions.splice(to, 0, dragId)
+                /* // this would be a swap
+                for (let i in this._.regions) {
+                    let v = this._.regions[i]
+                    if (v === dragId) {
+                        this._.regions[i] = dropId
+                    } else if (v === dropId) {
+                        this._.regions[i] = dragId
+                    }
+                }
+                */
+                this.computeTable()
             },
             async listGpxInBox_withfeedback(bounds) {
                 this.all_gpx = ['Filtering... wip']
@@ -271,12 +326,25 @@
                 this.mymap.eachLayer(l => { if ('_gpx' in l) l.remove() })
             },
             getRegions() {
-                return Object.values(this.mymap._layers).filter(l => l.options.isRegion)
+                let current = Object.values(this.mymap._layers).filter(l => l.options.isRegion)
+                let res = []
+                // add the ones for which we explicitely have an order
+                for (let rId of this._.regions) {
+                    res.push(...current.filter(r => r._leaflet_id === rId)) // only if found
+                }
+                // for the others, add them in order at the end of the ordering array
+                for (let r of current) {
+                    if (-1 === this._.regions.indexOf(r._leaflet_id)) {
+                        res.push(r)
+                        this._.regions.push(r._leaflet_id)
+                    }
+                }
+                return res
             },
             computeTable() {
                 let tracks = Object.values(this.mymap._layers).filter(l => l._gpx && l.options.isRef)
                 let regions = this.getRegions()
-                let cols = regions.map(r => ({...r.options, ...r._latlng, id: r._leaflet_id}))
+                let cols = regions.map(r => ({...r.options, ...r._latlng, id: r._leaflet_id, self: r}))
                 let rows = []
                 let data = []
                 for (let t of tracks) {
@@ -329,7 +397,7 @@
                 let map = this.mymap
                 //console.log(e.latlng)
                 let {lat, lng} = e.latlng
-                let reg = [lat, lng, 10]
+                let reg = [lat, lng, this.createRadius]
                 let circle = L.circle([reg[0], reg[1]], {radius: reg[2], color: this.colors[this.getRegions().length], isRegion: true}).addTo(map)
                 let grabbed = false
                 circle.on({
@@ -367,7 +435,9 @@
             },
         },
         mounted() {
-            this.mymap = L.map('themap').setView(this.cfg.center, this.cfg.zoom)
+            this.mymap = L.map('themap', {preferCanvas: true}).setView(this.cfg.center, this.cfg.zoom)
+            this._ = {} // for explicit non-reactive stuff
+            this._.regions = [] // order of region ids
             L.tileLayer(this.cfg.tileURL, {
                 maxZoom: 18,
                 attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, ',
@@ -388,7 +458,7 @@
             showYearly: false,
             showWeeklyDetails: true,
             showShoely: false,
-            showSegments: true,
+            showSegments: false,
         }),
         mounted() {
             let p = localStorage.getItem('stats_py_path')

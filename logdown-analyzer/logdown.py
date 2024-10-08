@@ -13,6 +13,7 @@ class Line:
         self.d_pos = None
         self.d_neg = None
         self.shoes = None
+        self.raw = None
         if 'shoes' in sticky: self.shoes = sticky['shoes']
         if 'shoes' in attrs: self.shoes = attrs['shoes']
 
@@ -81,7 +82,8 @@ class Line:
 def parse_logdown(fname):
     with open(fname, 'r') as f:
         content = '\n#'.join(reversed(f.read().split('\n#')))
-        
+
+        raw = ""
         entries = []
         sticky = {}
         date = ""
@@ -89,8 +91,12 @@ def parse_logdown(fname):
         for l in content.split('\n'):
             l = l.rstrip()
             if l.startswith('# '):
+                if len(entries) > 0 and entries[-1].raw is None:
+                    entries[-1].raw = raw
+                raw = ""
                 attrs = {}
                 date = re.sub('[:,]', ' ', l).split(' ')[1]
+            raw += '\n' + l
             g = re.fullmatch(r'# #SET +(.+) *: *(.+)', l)
             if g is not None:
                 sticky[g[1]] = g[2]
@@ -100,6 +106,9 @@ def parse_logdown(fname):
                 print(l)
             elif l.startswith('- shoes: '):
                 attrs['shoes'] = l.split(' ')[2]
+                
+        if len(entries) > 0 and entries[-1].raw is None:
+            entries[-1].raw = raw
 
         return entries
 

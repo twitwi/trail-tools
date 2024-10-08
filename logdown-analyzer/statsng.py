@@ -1,12 +1,19 @@
 import marimo
 
-__generated_with = "0.6.13"
+__generated_with = "0.8.0"
 app = marimo.App(width="medium")
 
 
 @app.cell
 def __():
     import marimo as mo
+
+    """ TODOS
+
+    - import hr data, hrzones histgrams (like daily steps), +efficiency (hr vs effective speed)
+    - equivalent distance
+    - make the advanced colorbar_scale optional + set better defaults for non-dayly
+    """
     return mo,
 
 
@@ -44,7 +51,7 @@ def __(mo):
             return res[0] if len(res) == 1 else res
         lget, lset = mo.state(0)
         setattr(lget, 'import_all', add_import)
-        lrefresh = mo.ui.refresh(default_interval=interval, on_change=_maybe_refresh)
+        lrefresh = mo.ui.refresh(options=[interval, '10s'], default_interval=None, on_change=_maybe_refresh)
         return lrefresh, lget
 
     def module_has_dependencies_on_any(mod, others):
@@ -63,13 +70,13 @@ def __(mo):
             more['label'] = f'{title} (shape: {th.shape})'
         return mo.ui.table(data=df, **more)
 
-    mo.md("""## Setting up live reload on python change (+ mo utils)""")
+    #mo.md("""## Setting up live reload on python change (+ mo utils)""")
     return MOLIVE, module_has_dependencies_on_any, show_table
 
 
-@app.cell(hide_code=True)
+@app.cell
 def __(MOLIVE):
-    lrefresh, live= MOLIVE(verbose=True) ; lrefresh
+    lrefresh, live = MOLIVE(verbose=True) #; lrefresh
     return live, lrefresh
 
 
@@ -81,11 +88,13 @@ def __(mo, runShellCommand):
     buttonReload = mo.ui.button(on_click=lambda ev: setLoadSeq(lambda v: v + 1), label='↺', tooltip='Reload log file')
     buttonEditLogs = mo.ui.button(on_click=lambda ev: runShellCommand('edit-logs', ev), label='L', tooltip='Edit log file')
     buttonEditNotes = mo.ui.button(on_click=lambda ev: runShellCommand('edit-notes', ev), label='N', tooltip='Edit notes')
+    buttonRaces = mo.ui.button(on_click=lambda ev: runShellCommand('edit-races', ev), label='R', tooltip='Edit races')
     buttonEditPT = mo.ui.button(on_click=lambda ev: runShellCommand('edit-parcourstest', ev), label='PT', tooltip='Edit parcours test')
     return (
         buttonEditLogs,
         buttonEditNotes,
         buttonEditPT,
+        buttonRaces,
         buttonReload,
         refreshOnLoadSeq,
         setLoadSeq,
@@ -99,6 +108,7 @@ def __(
     buttonEditLogs,
     buttonEditNotes,
     buttonEditPT,
+    buttonRaces,
     buttonReload,
     mo,
     showOnlyRecent,
@@ -122,7 +132,7 @@ def __(
     mo.vstack([
         mo.hstack([
             showWeeklyDetails, showOnlyRecent,
-            mo.hstack([buttonReload, buttonEditLogs, buttonEditNotes, buttonEditPT, ui_executor]),
+            mo.hstack([buttonReload, buttonEditLogs, buttonEditNotes, buttonEditPT, buttonRaces, ui_executor]),
             f'Total: {total.dist} km | {total.dur // 60} h | D+ {total.d_pos} m | D- {total.d_neg} m',
         ]),
         mo.ui.tabs(
@@ -140,6 +150,7 @@ def __():
         table {
             width: 100%;
         }
+        .with-actions { white-space: nowrap; }
         td { padding: 0.2em 0.5em; }
         td.w2-0 { background: teal; color: white; }
         td.w2-1 { background: grey; color: white; }
@@ -174,6 +185,7 @@ def __(
     max_weekly_stats,
     mo,
     namedtuple_dict,
+    np,
     runShellCommand,
     showOnlyRecent,
     showWeeklyDetails,
@@ -194,7 +206,15 @@ def __(
         res = '{}h{:02}'.format(h, m)
         return res
 
+    def colorbar_scale(v, br, max):
+        R = 10
+        α = 0.66
+        return np.where(v < br,
+                        α*v/br,
+                        α+(1-α)*np.log(1 + np.maximum(0, R*(v-br)) / (max-br))/np.log(1+R))
+
     def _ui_weekly(entries, limit=1e10):
+        _sp = '&#x202F;'
         res = []
         res.append('<table><tbody>')
         week = 0
@@ -206,27 +226,27 @@ def __(
                 week += 1
                 nb = entries_in_week(entries, i, e.week)
                 stat = namedtuple_dict(weekly_stats_dict[e.week])
-                st_dist = "--v: " + str(stat.dist  / max_weekly_stats['dist'])
-                st_dur = "--v: " + str(stat.dur  / max_weekly_stats['dur'])
-                st_d_pos = "--v: " + str(stat.d_pos  / max_weekly_stats['d_pos'])
+                st_dist = "--v: " + str(colorbar_scale(stat.dist, 30, max_weekly_stats['dist']))
+                st_dur = "--v: " + str(colorbar_scale(stat.dur, 300, max_weekly_stats['dur']))
+                st_d_pos = "--v: " + str(colorbar_scale(stat.d_pos, 1000, max_weekly_stats['d_pos']))
                 res.append(f'<td class="w w-{week} w2-{week%2} w3-{week%3}" rowspan={nb}>W:{e.week}</td>')
-                res.append(f'<td class="graded dist" rowspan="{nb}" style="{st_dist}">{stat.dist} km</td>')
+                res.append(f'<td class="graded dist" rowspan="{nb}" style="{st_dist}">{stat.dist}{_sp}km</td>')
                 res.append(f'<td class="graded dur" rowspan="{nb}" style="{st_dur}">{duration(stat.dur)}</td>')
-                res.append(f'<td class="graded d_pos" rowspan="{nb}" style="{st_d_pos}">{stat.d_pos} D+</td>')
-                res.append(f'<td class="d_neg" rowspan="{nb}">{stat.d_neg} D-</td>')
+                res.append(f'<td class="graded d_pos" rowspan="{nb}" style="{st_d_pos}">{stat.d_pos}{_sp}D+</td>')
+                res.append(f'<td class="d_neg" rowspan="{nb}">{stat.d_neg}{_sp}D-</td>')
                 res.append(f'<td rowspan="{nb}">{nb}</td>')
             if showWeeklyDetails.value:
-                st_dist = "--v: " + str(e.dist  / max_daily_stats['dist'])
-                st_dur = "--v: " + str((e.dur or 0)  / max_daily_stats['dur'])
-                st_d_pos = "--v: " + str((e.d_pos or 0)  / max_daily_stats['d_pos'])
-                res.append('<td class="with-actions">')
+                st_dist = "--v: " + str(colorbar_scale(e.dist, 30, max_daily_stats['dist']))
+                st_dur = "--v: " + str(colorbar_scale((e.dur or 0), 300, max_daily_stats['dur']))
+                st_d_pos = "--v: " + str(colorbar_scale((e.d_pos or 0), 1000, max_daily_stats['d_pos']))
+                res.append(f'''<td class="with-actions" title="{'' if e.raw is None else e.raw.replace('"', '“')}">{e.date}''')
                 res.append(f'''<span onclick="__runShellCommand('generic', '{e.date}')">📈</span>''')
                 res.append(f'''<span onclick="__runShellCommand('smooth', '{e.date}')">⛰️</span>''')
                 res.append(f'''<span onclick="__runShellCommand('gpxsee', '{e.date}')">🏔️</span>''')
                 res.append('</td>')
-                res.append(f'<td class="graded dist" style="{st_dist}" title="{"{:.2}".format(e.dist / (e.dur or 1e9) * 60)} km/h">{e.dist} km</td>')
+                res.append(f'<td class="graded dist" style="{st_dist}" title="{"{:2.2f}".format(e.dist / (e.dur or 1e9) * 60)} km/h">{e.dist}{_sp}km</td>')
                 res.append(f'<td class="graded dur" style="{st_dur}">{duration(int(e.dur or 0))}</td>')
-                res.append(f'<td class="graded d_pos" style="{st_d_pos}">{e.d_pos or 0} D+</td>')
+                res.append(f'<td class="graded d_pos" style="{st_d_pos}" title="{"{:2.2f}".format((e.dist+(e.d_pos or 0)/150) / (e.dur or 1e9) * 60)} 🔥/h">{e.d_pos or 0}{_sp}D+</td>')
             res.append('</tr>')
 
         res.append('</tbody></table>')
@@ -271,6 +291,7 @@ def __(
     return (
         Executor,
         InnerHTML,
+        colorbar_scale,
         duration,
         entries_in_week,
         ui_executor,
@@ -280,6 +301,7 @@ def __(
 
 @app.cell
 def __(
+    colorbar_scale,
     duration,
     max_monthly_stats,
     max_shoely_stats,
@@ -300,9 +322,9 @@ def __(
             dur = m[1]['dur']
             d_pos = m[1]['d_pos']
             d_neg = m[1]['d_neg']
-            st_dist = "--v: " + str(dist / max_stats['dist'])
-            st_dur = "--v: " + str(dur  / max_stats['dur'])
-            st_d_pos = "--v: " + str(d_pos  / max_stats['d_pos'])
+            st_dist = "--v: " + str(colorbar_scale(dist, 30, max_stats['dist']))
+            st_dur = "--v: " + str(colorbar_scale(dur, 300, max_stats['dur']))
+            st_d_pos = "--v: " + str(colorbar_scale(d_pos, 1000, max_stats['d_pos']))
             res.append(f'<td>{m[0]}</td>')
             res.append(f'<td class="graded dist" style="{st_dist}">{dist} km</td>')
             res.append(f'<td class="graded dur" style="{st_dur}">{duration(dur)}</td>')
@@ -327,8 +349,43 @@ def __(live):
     import subprocess
     import random
     from pathlib import Path
+
     ld = live.import_all('logdown')
+    #import logdown as ld
     return Path, collections, ld, np, random, subprocess
+
+
+@app.cell
+def __(colorbar_scale, np):
+    def _():
+        import matplotlib.pyplot as plt
+        x = np.arange(0,10000,10)
+        plt.plot(x, colorbar_scale(x, 1500, 10000))
+        plt.show()
+    #_()
+    return
+
+
+@app.cell
+def __(colorbar_scale, entries, np):
+    def _():
+        import matplotlib.pyplot as plt
+        for what in 'd_pos dist dur'.split(' '):
+            data = [e[what] for e in entries if e[what] is not None]
+            plt.hist(data, bins=100)
+            plt.vlines([np.mean(data), np.median(data), np.mean(data)+np.std(data)*1], 0, 200, 'red')
+            plt.title(what)
+            plt.show()
+            if what == 'd_pos':
+                plt.hist(colorbar_scale(np.array(data), 1000, np.max(data)), bins=100)
+            if what == 'dist':
+                plt.hist(colorbar_scale(np.array(data), 30, np.max(data)), bins=100)
+            if what == 'dur':
+                plt.hist(colorbar_scale(np.array(data), 300, np.max(data)), bins=100)
+            plt.show()
+
+    #_()
+    return
 
 
 @app.cell
@@ -364,17 +421,17 @@ def __(Path):
 
 @app.cell
 def __(ld, path, refreshOnLoadSeq):
-    refreshOnLoadSeq
-    entries = []
+    print(refreshOnLoadSeq())
+    #entries = []
 
-    def _reloadLogfile(entries):
-        entries[:] = []
-        try:
-            entries += list(reversed([vars(e) for e in ld.parse_logdown(path)]))
-        except:
-            pass
+    #def _reloadLogfile(entries):
+    #    entries[:] = []
+    try:
+        entries = list(reversed([vars(e) for e in ld.parse_logdown(path)]))
+    except:
+        pass
 
-    _reloadLogfile(entries)
+    #_reloadLogfile(entries)
     return entries,
 
 
@@ -514,6 +571,8 @@ def __(gpx_cwd, path, subprocess):
             go('gpxsee', str(e)+'*.gpx')
         elif what == 'edit-logs':
             go('emacs', path)
+        elif what == 'edit-races':
+            go('libreoffice', '$HOME/projects/nextcloud-mycorecnrs/random/carnet-courses.xlsx')
         elif what == 'edit-parcourstest':
             go('libreoffice', '$HOME/projects/nextcloud-mycorecnrs/random/TrainimmXT.xlsx')
         elif what == 'edit-notes':
@@ -568,6 +627,110 @@ def __(onclick):
     widget = onclick(lambda: print("OK"), 'Hello<b>wiii</b>')
     widget
     return widget,
+
+
+@app.cell
+def __(lrefresh):
+    lrefresh
+    return
+
+
+@app.cell
+def __(live):
+    import sys
+    _GPXPATH = '/home/twilight/doc/notes/gpx'
+    sys.path.append(_GPXPATH)
+    gpxplot = live.import_all('gpxplot')
+    df = gpxplot.process(["DUMMY", "-n", "9000", "-m", "ele", _GPXPATH+"/2024-07-04_12-11-01_2024-07-04_12-11-01.gpx"])
+    df.columns
+    return df, gpxplot, sys
+
+
+@app.cell
+def __(mo):
+    lgetalt, lsetalt = mo.state(0)
+    barriers = []
+    return barriers, lgetalt, lsetalt
+
+
+@app.cell
+def __(barriers, df, lgetalt, mo):
+    mo.stop(True)
+
+    #import altair as alt
+    import plotly.express as px
+    #import seaborn as sns
+    #import matplotlib.pyplot as plt
+
+    _x = 'dist'
+    _df = df.melt([_x, 'ddist'], value_vars=['ele', 'sele', 'dplus', 'dmoins'])
+
+    print(_df)
+
+    #_chart = sns.relplot(
+    #    data=_df, kind="line",
+    #    x=_x, y="value", hue="variable",
+    #)
+    #mo.mpl.interactive(plt.gcf())
+
+    print(lgetalt())
+    _chart = px.line(_df, x=_x, y='value', color="variable")
+    _chart.add_selection(    x0=2.5, y0=6.5, x1=3.5, y1=5.5)
+    for b in barriers:
+        _chart = _chart.add_vline(b)
+    achart = mo.ui.plotly(_chart, dict(modeBarButtonsToAdd=['drawline'], modeBarButtonsToRemove=['zoom2d']), on_change=print)
+
+    # Create an Altair chart
+    #lgetalt()
+    #_chart = alt.Chart(_df).mark_line().encode(
+    #    x=_x,
+    #    y='value',
+    #    color="variable",
+    #).add_params(alt.selection_point(encodings=['x']))
+    #achart = mo.ui.altair_chart(_chart | _chart.encode(x='ddist'))
+    return achart, b, px
+
+
+@app.cell
+def __(achart, mo):
+    mo.vstack([achart]) #, achart.value, achart.ranges, barriers])
+    return
+
+
+@app.cell
+def __(achart, barriers, lsetalt, mo):
+    mo.stop(True)
+    if len(achart.ranges) > 0:
+        _l, _r = achart.ranges['x']
+        for _b in barriers:
+            if _l < _b < _r:
+                barriers.remove(_b)
+                break
+        else:
+            if _l not in barriers:
+                barriers.append(_l)
+        barriers.sort()
+        lsetalt(lambda i:i+1 )
+    return
+
+
+@app.cell
+def __():
+    #if len(achart.value) > 0:
+    #    df['dist', 1000] = 20+random.randrange(20)
+    #    lsetalt(lambda i:i+1 )
+    return
+
+
+@app.cell
+def __():
+    return
+
+
+@app.cell
+def __(achart):
+    achart.value
+    return
 
 
 @app.cell
