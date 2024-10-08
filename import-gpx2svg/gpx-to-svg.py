@@ -10,6 +10,9 @@ from tools import latlon_to_tile, tile_to_latlon, get_tile_if_not_present
 from jinja2 import Template
 from itertools import groupby
 
+def log(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
 template = Template("""<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 
 <svg
@@ -58,15 +61,16 @@ template = Template("""<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 </svg>
 """)
 
-tileset = 'topo'
+tileset = 'osm' #'hikebike' #'topo'
 tools.TILE_FORMAT = "./tiles/tile-{}-{}-{}-{}.png"
 z = 15
 
 map_horizon = 0.005 # None
 gpx_file = open(sys.argv[1], 'r')
 gpx = gpxpy.parse(gpx_file)
-STEP = 10
-HULL_STEP = 5
+STEP = 1 # 10, set to 1 if it comes from graphhopper etc
+# TODO use file size to guess the 1 or 10
+HULL_STEP = 5 # 5
 HULL_WIDTH = .2#0.03
 
 needed_tiles = set()
@@ -74,8 +78,8 @@ needed_tiles = set()
 for track in gpx.tracks:
     for segment in track.segments:
         for point in segment.points[::STEP]:
-            #print('Point at ({0},{1}) -> {2}'.format(point.latitude, point.longitude, point.elevation))
-            #print(latlon_to_tile((point.latitude, point.longitude), z))
+            #log('Point at ({0},{1}) -> {2}'.format(point.latitude, point.longitude, point.elevation))
+            #log(latlon_to_tile((point.latitude, point.longitude), z))
             plat = point.latitude
             plon = point.longitude
             needed_tiles.add(latlon_to_tile((plat, plon), z, as_int=True))
@@ -129,8 +133,9 @@ def dhull(apoints, STEP = HULL_STEP):
     def add_right(b, a, l = HULL_WIDTH):
         d = ((b[0]-a[0])**2 + (b[1]-a[1])**2)**0.5
         if d==0:
-            print("ZZEEEEEEEEEEEEEEEEEEEEEEEEERRRRRRRRRRRRRRRRRROOOOOOOOOOOOOO")
-            exit()
+            log("ZZEEEEEEEEEEEEEEEEEEEEEEEEERRRRRRRRRRRRRRRRRROOOOOOOOOOOOOO")
+            d = 1
+            #exit()
         return (b[0] + (b[1]-a[1]) * l / d, b[1] - (b[0]-a[0]) * l / d)
     ps = apoints[::STEP] + apoints[::-STEP]
     return [ps[0]] + [add_right(ps[i], ps[i-1]) for i in range(1, len(ps)) ] + [ps[0]]
@@ -166,7 +171,7 @@ def lazy_overpass(gpshull, Qformat, cache_file = ",,cache-overpass"):
         def pos(p):
             return "{} {}".format(p[0], p[1])
         poly = " ".join([ pos(p) for p in gpshull ])
-        print("Querying overpass, please wait... ({})".format(cache_file), file=sys.stderr)
+        log("Querying overpass, please wait... ({})".format(cache_file))
         data = overpass.API().Get(Qformat.format(poly))
         with open(cache_file, 'wb') as f:
             pickle.dump(data, f)
@@ -175,6 +180,7 @@ def lazy_overpass(gpshull, Qformat, cache_file = ",,cache-overpass"):
 def all_overpass(apoints, base_cache = ",,cache-overpass", OVERCHUNK = 100, z=z):
     roads = []
     paths = []
+    log("Will stop at", len(apoints)-1)
     for istart in range(0, len(apoints)-1, OVERCHUNK):
         hull = dhull(apoints[istart:istart+OVERCHUNK])
         gpshull = [tile_to_latlon((p[1], p[0]), z) for p in hull]
@@ -200,7 +206,7 @@ apoints = list(ipoints(gpx))
 #apoints_by_types = [[],[]]
 osmpoints = all_overpass(apoints)
 apoints_by_types = partition_path(apoints, osmpoints)
-print(*map(len, osmpoints), file=sys.stderr)
+log(*map(len, osmpoints))
 
 print(template.render(tiles=tiles, z=z, viewbox=viewbox, gpxtrack=svg_path(apoints),
                       gpxhull=svg_path(dhull(apoints)), latmarks=latmarks(apoints),

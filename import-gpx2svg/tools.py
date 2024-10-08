@@ -88,10 +88,11 @@ def tile_file(name, x,y,z):
     return TILE_FORMAT.format(name, z,x,y)
 
 tile_sets = {
-    "osm": classic("http://tile.openstreetmap.org/"),
+    "osm": classic("https://tile.openstreetmap.org/"),
     "topo": classic("https://c.tile.opentopomap.org/"),
+    "hikebike": classic("https://toolserver.org/tiles/hikebike/"),
     #"esritopo": classic("https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/"),
-    "transport": classic("http://c.tile.thunderforest.com/transport/")
+    "transport": classic("https://c.tile.thunderforest.com/transport/")
 }
 
 def get_tile_if_not_present(tileset, x,y,z, verbose=True):
@@ -99,8 +100,10 @@ def get_tile_if_not_present(tileset, x,y,z, verbose=True):
     if not path.isfile(fname):
         url = tile_sets[tileset](x,y,z)
         if verbose:
-            print("wget {}".format(url), file=sys.stderr)
-        run_cmd("wget", url, "--quiet", "-O", fname)
+            #print("wget {}".format(url), file=sys.stderr)
+            print("curl {} --output {}".format(url, fname), file=sys.stderr)
+        #run_cmd("wget", url, "--quiet", "-O", fname)
+        run_cmd("curl", url, "-s", "-output", fname)
     return fname
 
 
