@@ -10,4 +10,7 @@ Randomly for different subtools.
 matplotlib
 numpy
 clipboard
+gpx_parser
+vuejspython
+asyncio
 ~~~
