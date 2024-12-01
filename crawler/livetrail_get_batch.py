@@ -7,6 +7,10 @@ import json
 import click
 from pathlib import Path
 
+config = dict(
+    raw_event_list='config-raw-event-list-from-livetrail.json',
+)
+
 def fetch_raw(url):
     req = urllib.request.urlopen(url)
     return req.read()
@@ -14,14 +18,20 @@ def fetch_raw(url):
 def fetch_xml(url):
     return ET.fromstring(fetch_raw(url))
 
-def get_events():
-    with open(f'config-event-list.txt', 'r') as f:
-        events = f.readlines()
-        events = [e[:-1] for e in events]
-    return events
+def get_events(fname=None):
+    if fname is None:
+        fname = config['raw_event_list']
+    #with open(f'config-event-list.txt', 'r') as f:
+    #    events = f.readlines()
+    #    events = [e[:-1] for e in events]
+    #return events
+    with open(fname) as f:
+        data = json.load(f)['calPass']
+        return list(data.keys())
 
-def get_instances():
-    fname = 'config-raw-event-list-from-livetrail.json'
+def get_instances(fname=None):
+    if fname is None:
+        fname = config['raw_event_list']
     # load the json file and get the calPass key
     # then each key is an event name, inside there is a res key with inside keys that are years (instances) with a "lien" key
     # return [event, year, lien]

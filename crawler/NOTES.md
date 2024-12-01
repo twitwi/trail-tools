@@ -1,5 +1,20 @@
 
 
+# NEW 2024-12
+
+Reget all race results
+
+After finding the json on the root of livetrail, I save it as config-raw-event-list-from-livetrail.json
+
+~~~
+alias batch='python3 livetrail_get_batch.py'
+batch fetch-all-events
+# ^ repeat as it stops on error and some years do not exist (we can find them back as --parcours.xml is empty, but they really don't work)
+~~~
+
+
+
+
 # Scripts
 
 ,,* files can be ignored
