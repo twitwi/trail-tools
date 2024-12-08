@@ -6,13 +6,47 @@ Reget all race results
 
 After finding the json on the root of livetrail, I save it as config-raw-event-list-from-livetrail.json
 
-~~~
+~~~bash
 alias batch='python3 livetrail_get_batch.py'
 batch fetch-all-events
 # ^ repeat as it stops on error and some years do not exist (we can find them back as --parcours.xml is empty, but they really don't work)
+
+batch compile-race-infos | sort -g
+# ^ WIP on producing some csv to describe races
+
+# maybe in a loop
+batch fetch_all_race_runners
+#monitor with
+cat data/livetrail--*runners.xml|grep 'ruri'|sed 's@.*ruri="\([^"]*\)".*@\1@g'|wc
+ 213292  213292 4964361
+cat data/livetrail--*runners.xml|grep 'ruri'|sed 's@.*ruri="\([^"]*\)".*@\1@g'|sort|uniq|wc
+ 126109  126109 2943049
+cat data/livetrail--*runners.xml|grep 'ruri'|sed 's@.*ruri="\([^"]*\)".*@\1@g'|sort|uniq -c|sort -g
+cat data/livetrail--*runners.xml|grep 'ruri'|sed 's@.*ruri="\([^"]*\)".*@\1@g'|sort|uniq -c|sort -g|awk '{print $1 " races"}'|uniq -c
+  78807 1 races
+  26205 2 races
+  11374 3 races
+   5023 4 races
+   2450 5 races
+   1165 6 races
+    568 7 races
+    277 8 races
+    119 9 races
+     61 10 races
+     31 11 races
+      9 12 races
+     10 13 races
+      1 14 races
+      4 15 races
+      1 16 races
+      1 17 races
+      1 19 races
+      1 20 races
+      1 23 races
+
 ~~~
 
-
+xmllint --format data/livetrail--utmj--2020--utmj---stats.xml
 
 
 # Scripts
